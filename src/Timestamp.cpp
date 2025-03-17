@@ -29,7 +29,7 @@ namespace mylog
                           tm_struc.tm_min,
                           tm_struc.tm_sec);
         if (is_show_microsec)
-            sprintf(buf + len, ".%ldZ", micsec);
+            sprintf(buf + len, ".%06ldZ", micsec);
         return std::string(buf);
     }
     std::string Timestamp::toFormattedFile() const
