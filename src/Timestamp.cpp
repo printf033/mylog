@@ -21,7 +21,7 @@ namespace mylog
         std::int64_t micsec = microsec_ % MICROSEC_PER_SEC;
         struct tm tm_struc;
         localtime_r(&sec, &tm_struc);
-        int len = sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d",
+        int len = sprintf(buf, "%04d-%02d-%02dT%02d:%02d:%02d",
                           tm_struc.tm_year + 1900,
                           tm_struc.tm_mon + 1,
                           tm_struc.tm_mday,
@@ -29,7 +29,7 @@ namespace mylog
                           tm_struc.tm_min,
                           tm_struc.tm_sec);
         if (is_show_microsec)
-            sprintf(buf + len, ".%06ldZ", micsec);
+            sprintf(buf + len, ".%06ld+08:00", micsec); // 东八区
         return std::string(buf);
     }
     std::string Timestamp::toFormattedFile() const
