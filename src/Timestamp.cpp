@@ -29,7 +29,7 @@ namespace mylog
                           tm_struc.tm_min,
                           tm_struc.tm_sec);
         if (is_show_microsec)
-            sprintf(buf + len, ".%06ld+08:00", micsec); // 东八区
+            sprintf(buf + len, ".%06ld", micsec);
         return std::string(buf);
     }
     std::string Timestamp::toFormattedFile() const
