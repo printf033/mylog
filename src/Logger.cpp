@@ -4,15 +4,15 @@
 
 namespace mylog
 {
-    // 默认log等级为INFO
+    // 默认log等级为TRACE
     LogLevel initLogLevel()
     {
-        if (getenv("LOG_TRACE"))
-            return LogLevel::TRACE;
+        if (getenv("LOG_INFO"))
+            return LogLevel::INFO;
         else if (getenv("LOG_DEBUG"))
             return LogLevel::DEBUG;
         else
-            return LogLevel::INFO;
+            return LogLevel::TRACE;
     }
     LogLevel Logger::_level = initLogLevel();
     // 默认log输出为stdout
