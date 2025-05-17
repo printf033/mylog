@@ -31,7 +31,7 @@ namespace mylog
         : header_{}, text_{}, level_(level)
     {
         char buf[LOGMESSAGE_BUFF_SIZE] = {};
-        sprintf(buf, "%s [%s] [%d]%s:%d:%s > ",
+        sprintf(buf, "%s %s [%d]%s:%d:%s >> ",
                 Timestamp::_Now().toFormattedString().c_str(),
                 _LvToStr[static_cast<int>(level_)],
                 gettid(),
