@@ -1,4 +1,4 @@
-#include "FileManager.hpp"
+#include "fileManager.hpp"
 #include <thread>
 #include <string>
 #include <memory>
@@ -30,20 +30,22 @@ namespace mylog
         ~AsyncHelper();
         AsyncHelper(const AsyncHelper &) = delete;
         AsyncHelper &operator=(const AsyncHelper &) = delete;
-        // 工作线程
+        AsyncHelper(AsyncHelper &&) = delete;
+        AsyncHelper &operator=(AsyncHelper &&) = delete;
+        // 工作线程调用
         void workThreadFunc();
         // 客户端线程调用
         void appendToPreBuffer_r(const std::string &msg);
         void flushPreBuffer_r();
-        static AsyncHelper &_getInstance();
+        static AsyncHelper &getInstance();
 
     public:
         // Logger接口设置函数
-        static void _outputFunc_async_file(const std::string &msg);
-        static void _flushFunc_async_file();
+        static void outputFunc_async_file(const std::string &msg);
+        static void flushFunc_async_file();
     };
 
-    class AsyncHelper_stdout // 给stdout用（如果操作系统保证stdout线程安全的话没必要用这个，效率反而不高）
+    class AsyncHelper_stdout // 给stdout用（如果操作系统保证printf线程安全的话没必要使用）
     {
         std::unique_ptr<std::string> puInputBuffer_;
         std::unique_ptr<std::string> puOutputBuffer_;
@@ -58,15 +60,17 @@ namespace mylog
         ~AsyncHelper_stdout();
         AsyncHelper_stdout(const AsyncHelper_stdout &) = delete;
         AsyncHelper_stdout &operator=(const AsyncHelper_stdout &) = delete;
+        AsyncHelper_stdout(AsyncHelper_stdout &&) = delete;
+        AsyncHelper_stdout &operator=(AsyncHelper_stdout &&) = delete;
         void workThreadFunc();
         void appendToPreBuffer_r(const std::string &msg);
         void flushPreBuffer_r();
-        static AsyncHelper_stdout &_getInstance();
+        static AsyncHelper_stdout &getInstance();
 
     public:
         // Logger接口设置函数
-        static void _outputFunc_async_stdout(const std::string &msg);
-        static void _flushFunc_async_stdout();
+        static void outputFunc_async_stdout(const std::string &msg);
+        static void flushFunc_async_stdout();
     };
 }
 

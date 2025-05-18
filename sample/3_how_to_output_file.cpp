@@ -1,13 +1,13 @@
-#include "Logger.hpp"
+#include "logger.hpp"
 
 using namespace mylog;
 
 int main()
 {
-    FileManager::_setBasename("test");
+    FileManager::setBasename("it_is_a_test"); // omissible
 
-    Logger::_setOutputFunc(FileManager::_outputFunc_file);
-    Logger::_setFlushFunc(FileManager::_flushFunc_file);
+    Logger::setOutputFunc(FileManager::outputFunc_file);
+    Logger::setFlushFunc(FileManager::flushFunc_file);
 
     // test
     LOG_TRACE << "Hello World";

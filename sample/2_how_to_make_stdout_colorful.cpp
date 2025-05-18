@@ -1,10 +1,10 @@
-#include "Logger.hpp"
+#include "logger.hpp"
 
 using namespace mylog;
 
 int main()
 {
-    LogMessage::_setTerminalColorful();
+    LogMessage::setTerminalVivid();
     
     // test
     LOG_TRACE << "Hello World";

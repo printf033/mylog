@@ -1,4 +1,4 @@
-#include "AsyncHelper.hpp"
+#include "asyncHelper.hpp"
 #include <assert.h>
 #include <error.h>
 #include <string.h>
@@ -21,7 +21,7 @@ namespace mylog
         puOutputBuffer_->reserve(ASYNCBUFF_CAPA);
         puthread_.reset(new std::thread(&AsyncHelper::workThreadFunc, this));
     }
-    AsyncHelper &AsyncHelper::_getInstance()
+    AsyncHelper &AsyncHelper::getInstance()
     {
         static AsyncHelper instance;
         return instance;
@@ -38,7 +38,7 @@ namespace mylog
             }
             cv_InputBuffer_full_.notify_all();
             // 此处使用非_r函数，必须确保没有其他线程使用FileManager单例！
-            FileManager::_getInstance().appendToBufferAutoRoll(*puOutputBuffer_);
+            FileManager::getInstance().appendToBufferAutoRoll(*puOutputBuffer_);
             puOutputBuffer_->clear();
         }
     }
@@ -56,7 +56,7 @@ namespace mylog
     {
         std::lock_guard<std::mutex> locker(mtx_);
         // 此处使用非_r函数，必须确保没有其他线程使用FileManager单例！
-        FileManager::_getInstance().flushBuffer();
+        FileManager::getInstance().flushBuffer();
     }
     AsyncHelper::~AsyncHelper()
     {
@@ -70,7 +70,6 @@ namespace mylog
             puthread_->join();
     }
 
-    // 给stdout用
     AsyncHelper_stdout::AsyncHelper_stdout()
         : is_running_(true),
           puInputBuffer_(new std::string),
@@ -80,7 +79,7 @@ namespace mylog
         puOutputBuffer_->reserve(ASYNCBUFF_CAPA);
         puthread_.reset(new std::thread(&AsyncHelper_stdout::workThreadFunc, this));
     }
-    AsyncHelper_stdout &AsyncHelper_stdout::_getInstance()
+    AsyncHelper_stdout &AsyncHelper_stdout::getInstance()
     {
         static AsyncHelper_stdout instance;
         return instance;
@@ -128,20 +127,20 @@ namespace mylog
             puthread_->join();
     }
 
-    void AsyncHelper::_outputFunc_async_file(const std::string &msg)
+    void AsyncHelper::outputFunc_async_file(const std::string &msg)
     {
-        _getInstance().appendToPreBuffer_r(msg);
+        getInstance().appendToPreBuffer_r(msg);
     }
-    void AsyncHelper::_flushFunc_async_file()
+    void AsyncHelper::flushFunc_async_file()
     {
-        _getInstance().flushPreBuffer_r();
+        getInstance().flushPreBuffer_r();
     }
-    void AsyncHelper_stdout::_outputFunc_async_stdout(const std::string &msg)
+    void AsyncHelper_stdout::outputFunc_async_stdout(const std::string &msg)
     {
-        _getInstance().appendToPreBuffer_r(msg);
+        getInstance().appendToPreBuffer_r(msg);
     }
-    void AsyncHelper_stdout::_flushFunc_async_stdout()
+    void AsyncHelper_stdout::flushFunc_async_stdout()
     {
-        _getInstance().flushPreBuffer_r();
+        getInstance().flushPreBuffer_r();
     }
 } // namespace mylog

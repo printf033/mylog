@@ -1,4 +1,4 @@
-#include "FileAppender.hpp"
+#include "fileAppender.hpp"
 #include <assert.h>
 #include <error.h>
 #include <string.h>
@@ -14,7 +14,7 @@ namespace mylog
           puBuffer_(new char[FILEBUFF_CAPA])
     {
         pFILE_ = fopen(filename.c_str(), "a");
-        assert(pFILE_ != nullptr);
+        assert(nullptr != pFILE_);
         setvbuf(pFILE_, puBuffer_.get(), _IOFBF, FILEBUFF_CAPA);
     }
     FileAppender::~FileAppender() { fclose(pFILE_); }
@@ -37,8 +37,8 @@ namespace mylog
     }
     void FileAppender::flushBuffer()
     {
-        if (nullptr != pFILE_)
-            fflush(pFILE_);
+        assert(nullptr != pFILE_);
+        fflush(pFILE_);
     }
     size_t FileAppender::getContentSize() const { return content_size_; }
 } // namespace mylog

@@ -1,5 +1,4 @@
 #include <iostream>
-#include <sstream>
 #include <string>
 
 #ifndef LOGMESSAGE_HPP
@@ -23,25 +22,27 @@ namespace mylog
         std::string text_;
         LogLevel level_;
 
-        static const char **_LvToStr;
+        static const char **pLv2Str;
 
     public:
         LogMessage(const LogLevel &level,
                    const std::string &filename,
                    const std::string &funcname,
                    const int line);
-        ~LogMessage();
+        ~LogMessage() = default;
+        LogMessage(const LogMessage &) = delete;
+        LogMessage &operator=(const LogMessage &) = delete;
+        LogMessage(LogMessage &&) = delete;
+        LogMessage &operator=(LogMessage &&) = delete;
         const std::string toString() const;
         const LogLevel getLogLevel() const;
         template <class T>
-        LogMessage &operator<<(const T &text)
+        LogMessage &operator<<(T &&text)
         {
-            std::stringstream ss;
-            ss << text;
-            text_ += ss.str();
+            text_ += text;
             return *this;
         }
-        static void _setTerminalColorful();
+        static void setTerminalVivid();
     };
 
 } // namespace mylog

@@ -1,10 +1,10 @@
-#include "Logger.hpp"
+#include "logger.hpp"
 
 using namespace mylog;
 
 int main()
 {
-    Logger::_setLogLevel(LogLevel::TRACE);
+    Logger::setLogLevel(LogLevel::DEBUG);
 
     // test
     LOG_TRACE << "Hello World";

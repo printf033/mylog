@@ -19,6 +19,10 @@ namespace mylog
     public:
         FileAppender(const std::string &filename);
         ~FileAppender();
+        FileAppender(const FileAppender &) = delete;
+        FileAppender &operator=(const FileAppender &) = delete;
+        FileAppender(FileAppender &&) = delete;
+        FileAppender &operator=(FileAppender &&) = delete;
         void appendToBuffer(const std::string &msg);
         void flushBuffer();
         size_t getContentSize() const;

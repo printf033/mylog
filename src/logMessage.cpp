@@ -1,47 +1,42 @@
-#include "LogMessage.hpp"
-#include "Timestamp.hpp"
+#include "logMessage.hpp"
+#include "timestamp.hpp"
 #include <libgen.h>
 #include <unistd.h>
 
 namespace mylog
 {
-    // 缓冲区大小（单位：Byte）
-    const int LOGMESSAGE_BUFF_SIZE = 256;
-    // 默认log等级样式为非终端彩色
-    static const char *LvToStr[] = {
+    static const char *lv2Str[] = {
         "TRACE",
         "DEBUG",
         "INFO ",
         "WARN ",
         "ERROR",
         "FATAL"};
-    static const char *LvToStr_clr[] = {
+    static const char *lv2Str_clr[] = {
         "\033[7;32mTRACE\033[0m",
         "\033[7;35mDEBUG\033[0m",
         "\033[7;34mINFO \033[0m",
         "\033[7;33mWARN \033[0m",
         "\033[7;31mERROR\033[0m",
         "\033[5;41mFATAL\033[0m"};
-    const char **LogMessage::_LvToStr = LvToStr;
+    const char **LogMessage::pLv2Str = lv2Str; // 默认log等级样式为无色彩
 
     LogMessage::LogMessage(const LogLevel &level,
                            const std::string &filename,
                            const std::string &funcname,
-                           const int line)
-        : header_{}, text_{}, level_(level)
+                           const int line) : level_(level)
     {
-        char buf[LOGMESSAGE_BUFF_SIZE] = {};
+        char buf[256] = {};
         sprintf(buf, "%s %s [%d]%s:%d:%s >> ",
-                Timestamp::_Now().toFormattedString().c_str(),
-                _LvToStr[static_cast<int>(level_)],
+                Timestamp().toFormattedString().c_str(),
+                pLv2Str[static_cast<int>(level_)],
                 gettid(),
                 basename(const_cast<char *>(filename.c_str())),
                 line,
                 funcname.c_str());
         header_ = buf;
     }
-    LogMessage::~LogMessage() {}
-    const std::string LogMessage::toString() const { return header_ + text_ + "\n"; }
+    const std::string LogMessage::toString() const { return header_ + text_ + '\n'; }
     const LogLevel LogMessage::getLogLevel() const { return level_; }
-    void LogMessage::_setTerminalColorful() { _LvToStr = LvToStr_clr; }
+    void LogMessage::setTerminalVivid() { pLv2Str = lv2Str_clr; }
 } // namespace mylog

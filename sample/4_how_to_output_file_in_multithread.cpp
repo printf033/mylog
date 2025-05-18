@@ -1,4 +1,4 @@
-#include "Logger.hpp"
+#include "logger.hpp"
 #include <unistd.h>
 #include <thread>
 
@@ -6,10 +6,10 @@ using namespace mylog;
 
 int main()
 {
-    FileManager::_setBasename("test");
+    FileManager::setBasename("it_is_a_test"); // omissible
 
-    Logger::_setOutputFunc(AsyncHelper::_outputFunc_async_file);
-    Logger::_setFlushFunc(AsyncHelper::_flushFunc_async_file);
+    Logger::setOutputFunc(AsyncHelper::outputFunc_async_file);
+    Logger::setFlushFunc(AsyncHelper::flushFunc_async_file);
 
     // test
     std::thread thr001([]
