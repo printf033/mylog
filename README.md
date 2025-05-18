@@ -21,7 +21,7 @@
 1. 将 `mylog` 源代码添加到你的项目中。
 2. 使用 [CMake](./CMakeLists.txt) 配置项目，例如：
     ```bash
-    mkdir build && cd build
+    cd build
     cmake ..
     make
     ```
