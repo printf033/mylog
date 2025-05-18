@@ -6,8 +6,6 @@ using namespace mylog;
 
 int main()
 {
-    FileManager::setBasename("it_is_a_test"); // omissible
-
     Logger::setOutputFunc(AsyncHelper::outputFunc_async_file);
     Logger::setFlushFunc(AsyncHelper::flushFunc_async_file);
 

@@ -39,7 +39,7 @@ namespace mylog
     }
     std::string Timestamp::toFormattedString(bool is_show_microsec) const
     {
-        char buf[32] = {};
+        char buf[72] = {};
         struct tm tm_struc;
         localtime_r(&timeval_struc_.tv_sec, &tm_struc);
         int len = sprintf(buf, "%04d-%02d-%02dT%02d:%02d:%02d",
@@ -55,7 +55,7 @@ namespace mylog
     }
     std::string Timestamp::toUnformattedString() const
     {
-        char buf[16] = {};
+        char buf[67] = {};
         struct tm tm_struc;
         localtime_r(&timeval_struc_.tv_sec, &tm_struc);
         int len = sprintf(buf, "%04d%02d%02d%02d%02d%02d",

@@ -6,16 +6,17 @@
 
 namespace mylog
 {
+    // 默认basename
+    std::string FileManager::basename = "default";
     // 文件缓冲区容量（128kB）
     const int MAX_FILEBUFF_WRITE_TIMES = 131072;
     // 回滚文件时间间隔（s）
     const std::int64_t ROLL_FILE_INTERVAL = 3;
 
-    FileManager::FileManager(const std::string &basename)
+    FileManager::FileManager()
         : cur_write_times(0),
           last_roll_time_(Timestamp()),
           now_(Timestamp()),
-          basename_(basename),
           pFileAppender_(nullptr)
     {
         rollFile();
@@ -27,7 +28,7 @@ namespace mylog
     }
     void FileManager::rollFile()
     {
-        std::string filename(basename_);
+        std::string filename(basename);
         filename += now_.toUnformattedString();
         char buf[128] = {};
         filename += (0 == gethostname(buf, 128) ? std::string(buf) : std::string("unknownhost"));
@@ -69,12 +70,12 @@ namespace mylog
     }
     FileManager &FileManager::getInstance()
     {
-        static FileManager instance("default");
+        static FileManager instance;
         return instance;
     }
     void FileManager::setBasename(const std::string &basename)
     {
-        getInstance().basename_ = basename;
+        FileManager::basename = basename;
     }
     void FileManager::outputFunc_file(const std::string &msg)
     {

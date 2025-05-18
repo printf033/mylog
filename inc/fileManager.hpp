@@ -13,12 +13,13 @@ namespace mylog
         int cur_write_times;
         Timestamp last_roll_time_;
         Timestamp now_;
-        std::string basename_;
-        FileAppender* pFileAppender_;
+        FileAppender *pFileAppender_;
         std::mutex mtx_;
 
+        static std::string basename;
+
     private:
-        FileManager(const std::string &basename);
+        FileManager();
         ~FileManager();
         FileManager(const FileManager &) = delete;
         FileManager &operator=(const FileManager &) = delete;
