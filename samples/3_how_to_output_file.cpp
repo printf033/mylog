@@ -1,10 +1,12 @@
 #include "logger.hpp"
-
-using namespace mylog;
+#include "fileManager.hpp"
 
 int main()
 {
-    Logger::setLogLevel(LogLevel::DEBUG);
+    FileManager::setBasename("hello_"); // omissible
+
+    Logger::setOutputFunction(FileManager::outputFunction_file);
+    Logger::setFlushFunction(FileManager::flushFunction_file);
 
     // test
     LOG_TRACE << "Hello World";

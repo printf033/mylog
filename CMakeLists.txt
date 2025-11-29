@@ -1,17 +1,15 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.16)
 
-project(MYLOG)
+project(mylog)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fsanitize=address")
+set(CMAKE_CXX_STANDARD 20)
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(${PROJECT_SOURCE_DIR}/inc)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-aux_source_directory(${PROJECT_SOURCE_DIR}/src LOG_SRC)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_SOURCE_DIR}/build)
 
-add_executable(how_to_use ${PROJECT_SOURCE_DIR}/sample/0_how_to_use.cpp ${LOG_SRC})
-add_executable(how_to_set_level ${PROJECT_SOURCE_DIR}/sample/1_how_to_set_level.cpp ${LOG_SRC})
-add_executable(how_to_set_stdout_colorful ${PROJECT_SOURCE_DIR}/sample/2_how_to_set_stdout_colorful.cpp ${LOG_SRC})
-add_executable(how_to_output_file ${PROJECT_SOURCE_DIR}/sample/3_how_to_output_file.cpp ${LOG_SRC})
-add_executable(how_to_output_file_in_multithread ${PROJECT_SOURCE_DIR}/sample/4_how_to_output_file_in_multithread.cpp ${LOG_SRC})
+add_subdirectory(src)
+
+add_subdirectory(samples)

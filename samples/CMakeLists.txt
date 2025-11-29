@@ -1,0 +1,13 @@
+function(gen_elf name)
+    add_executable(${name} ${name}.cpp)
+    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_link_libraries(${name} PRIVATE mylog)
+    target_compile_options(${name} PRIVATE -fsanitize=address -g)
+    target_link_options(${name} PRIVATE -fsanitize=address)
+endfunction()
+
+gen_elf(0_how_to_start)
+gen_elf(1_how_to_set_level)
+gen_elf(2_how_to_set_stdout_vivid)
+gen_elf(3_how_to_output_file)
+gen_elf(4_how_to_use_double_buffer)

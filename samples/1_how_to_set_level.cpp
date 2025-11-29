@@ -1,11 +1,9 @@
 #include "logger.hpp"
 
-using namespace mylog;
-
 int main()
 {
-    LogMessage::setTerminalVivid();
-    
+    Logger::setTriggerLevel(Logger::Level::DEBUG);
+
     // test
     LOG_TRACE << "Hello World";
     LOG_DEBUG << "Hello World";

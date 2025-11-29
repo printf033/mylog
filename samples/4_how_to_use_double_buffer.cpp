@@ -1,13 +1,12 @@
 #include "logger.hpp"
+#include "doubleBuffer.hpp"
 #include <unistd.h>
 #include <thread>
 
-using namespace mylog;
-
 int main()
 {
-    Logger::setOutputFunc(AsyncHelper::outputFunc_async_file);
-    Logger::setFlushFunc(AsyncHelper::flushFunc_async_file);
+    Logger::setOutputFunction(DoubleBuffer::outputFunction_2buffer_file_r);
+    Logger::setFlushFunction(DoubleBuffer::flushFunction_2buffer_file_r);
 
     // test
     std::thread thr001([]
