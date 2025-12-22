@@ -1,5 +1,4 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#pragma once
 
 #include <string>
 #include <sstream>
@@ -139,5 +138,3 @@ public:
 #define LOG_ERROR Logger(Logger::Level::ERROR, __FILE__, __func__, __LINE__)
 
 #define LOG_FATAL Logger(Logger::Level::FATAL, __FILE__, __func__, __LINE__)
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef TIMESTAMP_HPP
-#define TIMESTAMP_HPP
+#pragma once
 
 #include <ctime>
 #include <string>
@@ -78,5 +77,3 @@ public:
     std::int64_t getSecond() const { return timeval_struc_.tv_sec; }
     std::int64_t getDay() const { return timeval_struc_.tv_usec / 86400000000L; }
 };
-
-#endif

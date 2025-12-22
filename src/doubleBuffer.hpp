@@ -1,5 +1,4 @@
-#ifndef DOUBLEBUFFER_HPP
-#define DOUBLEBUFFER_HPP
+#pragma once
 
 #include "fileManager.hpp"
 #include <string>
@@ -95,5 +94,3 @@ public:
     static void outputFunction_2buffer_file_r(const std::string &msg) { getInstance().appendPreBuffer_r(msg); }
     static void flushFunction_2buffer_file_r() { getInstance().flushPreBuffer_r(); }
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef FILEAPPENDER_HPP
-#define FILEAPPENDER_HPP
+#pragma once
 
 #include <string>
 #include <cassert>
@@ -49,5 +48,3 @@ public:
     // 0 success
     int flushBuffer() { return fflush(pFILE_); }
 };
-
-#endif

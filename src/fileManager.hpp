@@ -1,5 +1,4 @@
-#ifndef FILEMANAGER_HPP
-#define FILEMANAGER_HPP
+#pragma once
 
 #include "fileAppender.hpp"
 #include "timestamp.hpp"
@@ -95,5 +94,3 @@ public:
     static void outputFunction_file_r(const std::string &msg) { getInstance().appendBuffer_r(msg); }
     static void flushFunction_file_r() { getInstance().flushBuffer_r(); }
 };
-
-#endif
