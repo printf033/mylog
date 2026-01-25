@@ -1,0 +1,15 @@
+{
+    "logger": {
+        "suppressLevel": "INFO"
+    },
+    "file": {
+        "fileBufCapa": 2097152,
+        "fileCapa": 1073741824,
+        "basename": "mylog",
+        "intervalFlushFile": 30
+    },
+    "buffer": {
+        "bufCapa": 1048576,
+        "intervalFlushBuffer": 5
+    }
+}

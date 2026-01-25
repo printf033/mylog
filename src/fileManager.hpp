@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fileAppender.hpp"
+#include "myconfiger.hpp"
 #include "timestamp.hpp"
 #include <string>
 #include <mutex>
@@ -8,89 +8,108 @@
 
 class FileManager
 {
-    static inline std::string basename_global = "log_";
-    static const int MAX_WRITE_TIMES = 1000;
-    static const std::int64_t ROLL_FILE_INTERVAL_s = 3;
-
-    int curWriteTimes_ = 0;
-    Timestamp lastRollTime_{};
-    Timestamp time_{};
-    FileAppender *pFileAppender_ = nullptr;
+    OptionsFileManager options_;
+    FILE *pFile_ = nullptr;
+    size_t fileSize_ = 0;
+    char *pBuffer_ = nullptr;
+    Timestamp lastFlushTime_;
     std::mutex mtx_;
 
 private:
-    void rollFile()
-    {
-        std::string filename(basename_global);
-        filename += time_.toUnformattedString();
-        char buf[128] = {};
-        filename += (0 == gethostname(buf, 128) ? std::string(buf) : std::string("unknownhost"));
-        filename += std::to_string(getpid());
-
-        lastRollTime_ = time_;
-        delete pFileAppender_;
-        pFileAppender_ = new FileAppender(filename);
-    }
     FileManager()
     {
-        std::lock_guard<std::mutex> locker(mtx_);
-        rollFile();
+        pBuffer_ = new char[options_.fileBufCapa];
+        lastFlushTime_.update();
+        pFile_ = fopen(
+            std::format("{}_{}_{}.log", lastFlushTime_.toString(), options_.basename, getpid()).c_str(),
+            "a");
+        if (pBuffer_ != nullptr && pFile_ != nullptr)
+            setvbuf(pFile_, pBuffer_, _IOFBF, options_.fileBufCapa);
     }
-    ~FileManager()
+    ~FileManager() noexcept
     {
         std::lock_guard<std::mutex> locker(mtx_);
-        delete pFileAppender_;
-        pFileAppender_ = nullptr;
+        if (pFile_ != nullptr)
+        {
+            fflush(pFile_);
+            fclose(pFile_);
+            pFile_ = nullptr;
+        }
+        if (pBuffer_ != nullptr)
+        {
+            delete[] pBuffer_;
+            pBuffer_ = nullptr;
+        }
     }
     FileManager(const FileManager &) = delete;
     FileManager &operator=(const FileManager &) = delete;
-    FileManager(FileManager &&) = delete;
-    FileManager &operator=(FileManager &&) = delete;
+    FileManager(FileManager &&) noexcept = delete;
+    FileManager &operator=(FileManager &&) noexcept = delete;
 
 public:
-    static FileManager &getInstance()
+    inline static FileManager &getInstance()
     {
         static FileManager instance;
         return instance;
     }
-    // n the number append
-    // -1 buffer overflow
-    int appendBuffer(const std::string &msg)
+    void appendFile(std::string_view msg)
     {
-        time_.update();
-        if (time_.getDay() > lastRollTime_.getDay() ||
-            ++curWriteTimes_ > MAX_WRITE_TIMES ||
-            time_.getSecond() - lastRollTime_.getSecond() > ROLL_FILE_INTERVAL_s)
+        if (pFile_ == nullptr)
+            return;
+        if (lastFlushTime_.getDiffDays() > std::chrono::days(0) ||
+            fileSize_ >= options_.fileCapa)
         {
-            rollFile();
-            curWriteTimes_ = 0;
+            fflush(pFile_);
+            fclose(pFile_);
+            pFile_ = nullptr;
+            lastFlushTime_.update();
+            pFile_ = fopen(
+                std::format("{}_{}_{}.log", lastFlushTime_.toString(), options_.basename, getpid()).c_str(),
+                "a");
+            fileSize_ = 0;
         }
-        assert(pFileAppender_ != nullptr);
-        return pFileAppender_->appendBuffer(msg);
+        if (lastFlushTime_.getDiffSeconds() > options_.intervalFlushFile)
+        {
+            fflush(pFile_);
+            lastFlushTime_.update();
+        }
+        fileSize_ += fwrite_unlocked(msg.data(), 1, msg.size(), pFile_);
     }
-    // 0 success
-    int flushBuffer()
+    void flushFile()
     {
-        assert(pFileAppender_ != nullptr);
-        return pFileAppender_->flushBuffer();
+        if (pFile_ == nullptr)
+            return;
+        if (fflush(pFile_) < 0)
+            return;
     }
-    // n the number append
-    // -1 buffer overflow
-    int appendBuffer_r(const std::string &msg)
-    {
-        std::lock_guard<std::mutex> locker(mtx_);
-        return appendBuffer(msg);
-    }
-    // 0 success
-    int flushBuffer_r()
+    void appendFile_r(std::string_view msg)
     {
         std::lock_guard<std::mutex> locker(mtx_);
-        return flushBuffer();
+        appendFile(msg);
     }
-
-    static void setBasename(const std::string &basename) { basename_global = basename; }
-    static void outputFunction_file(const std::string &msg) { getInstance().appendBuffer(msg); }
-    static void flushFunction_file() { getInstance().flushBuffer(); }
-    static void outputFunction_file_r(const std::string &msg) { getInstance().appendBuffer_r(msg); }
-    static void flushFunction_file_r() { getInstance().flushBuffer_r(); }
+    void flushFile_r()
+    {
+        std::lock_guard<std::mutex> locker(mtx_);
+        flushFile();
+    }
+    inline static void setBasename(std::string_view basename)
+    {
+        getInstance().options_.basename = basename;
+    }
+    inline static void outputFunction_file(std::string_view msg)
+    {
+        getInstance().appendFile(msg);
+    }
+    inline static void flushFunction_file()
+    {
+        getInstance().flushFile();
+    }
+    inline static void outputFunction_file_r(std::string_view msg)
+    {
+        getInstance().appendFile_r(msg);
+    }
+    inline static void flushFunction_file_r()
+    {
+        getInstance().flushFile_r();
+    }
 };

@@ -1,79 +1,42 @@
 #pragma once
 
-#include <ctime>
+#include <chrono>
 #include <string>
-#include <cstdint>
-#include <sys/time.h>
+#include <format>
 
 class Timestamp
 {
-    struct timeval timeval_struc_;
+    std::chrono::time_point<std::chrono::system_clock> lastTimepoint_;
 
 public:
-    void update()
+    Timestamp() noexcept { lastTimepoint_ = std::chrono::system_clock::now(); }
+    ~Timestamp() noexcept = default;
+    Timestamp(const Timestamp &) noexcept = default;
+    Timestamp &operator=(const Timestamp &) noexcept = default;
+    Timestamp(Timestamp &&) noexcept = default;
+    Timestamp &operator=(Timestamp &&) noexcept = default;
+    inline void swap(Timestamp &other) noexcept
     {
-        struct timeval timeval_struc;
-        gettimeofday(&timeval_struc, nullptr);
-        timeval_struc_.tv_sec = timeval_struc.tv_sec;
-        timeval_struc_.tv_usec = timeval_struc.tv_usec;
+        std::swap(lastTimepoint_, other.lastTimepoint_);
     }
-    Timestamp() { update(); }
-    ~Timestamp() = default;
-    void swap(Timestamp &other) { std::swap(timeval_struc_, other.timeval_struc_); }
-    Timestamp(const Timestamp &other)
+    inline std::chrono::time_point<std::chrono::system_clock> update() noexcept
     {
-        timeval_struc_.tv_sec = other.timeval_struc_.tv_sec;
-        timeval_struc_.tv_usec = other.timeval_struc_.tv_usec;
+        return lastTimepoint_ = std::chrono::system_clock::now();
     }
-    Timestamp &operator=(const Timestamp &other)
+    inline std::string toString() const
     {
-        if (this != &other)
-            Timestamp(other).swap(*this);
-        return *this;
+        return std::format("{:%Y%m%d_%H%M%S}", std::chrono::floor<std::chrono::seconds>(lastTimepoint_));
     }
-    Timestamp(Timestamp &&other)
+    inline std::string toFormattedString() const
     {
-        timeval_struc_.tv_sec = other.timeval_struc_.tv_sec;
-        timeval_struc_.tv_usec = other.timeval_struc_.tv_usec;
-        other.timeval_struc_.tv_sec = 0;
-        other.timeval_struc_.tv_usec = 0;
+        return std::format("{:%F %T}", lastTimepoint_);
     }
-    Timestamp &operator=(Timestamp &&other)
+    inline std::chrono::seconds getDiffSeconds() const noexcept
     {
-        if (this != &other)
-            Timestamp(std::move(other)).swap(*this);
-        return *this;
+        return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - lastTimepoint_);
     }
-    std::string toFormattedString(bool is_show_microsec = true) const
+    inline std::chrono::days getDiffDays() const noexcept
     {
-        char buf[72] = {};
-        struct tm tm_struc;
-        localtime_r(&timeval_struc_.tv_sec, &tm_struc);
-        int len = sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d",
-                          tm_struc.tm_year + 1900,
-                          tm_struc.tm_mon + 1,
-                          tm_struc.tm_mday,
-                          tm_struc.tm_hour,
-                          tm_struc.tm_min,
-                          tm_struc.tm_sec);
-        if (is_show_microsec)
-            sprintf(buf + len, ".%06ld", timeval_struc_.tv_usec);
-        return std::string(buf);
+        return std::chrono::duration_cast<std::chrono::days>(std::chrono::system_clock::now() - lastTimepoint_);
     }
-    std::string toUnformattedString() const
-    {
-        char buf[67] = {};
-        struct tm tm_struc;
-        localtime_r(&timeval_struc_.tv_sec, &tm_struc);
-        sprintf(buf, "%04d%02d%02d%02d%02d%02d",
-                tm_struc.tm_year + 1900,
-                tm_struc.tm_mon + 1,
-                tm_struc.tm_mday,
-                tm_struc.tm_hour,
-                tm_struc.tm_min,
-                tm_struc.tm_sec);
-        return std::string(buf);
-    }
-    std::int64_t getSecond() const { return timeval_struc_.tv_sec; }
-    std::int64_t getDay() const { return timeval_struc_.tv_usec / 86400000000L; }
 };

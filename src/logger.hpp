@@ -1,140 +1,114 @@
 #pragma once
 
-#include <string>
-#include <sstream>
-#include <functional>
-#include <cstdio>
+#include "myconfiger.hpp"
 #include "timestamp.hpp"
 #include <unistd.h>
-#include <libgen.h>
+#include <format>
+#include <type_traits>
 
 class Logger
 {
-public:
-    enum class Level
-    {
-        TRACE = 0,
-        DEBUG,
-        INFO,
-        WARN,
-        ERROR,
-        FATAL
-    };
+    OptionsLogger options_;
 
-private:
-    static inline Level triggerLevel_global = Level::TRACE;
-
-    static inline const char *LV2STR[] = {
-        "TRACE",
-        "DEBUG",
-        "INFO ",
-        "WARN ",
-        "ERROR",
-        "FATAL"};
-    static inline const char *LV2STR_vivid[] = {
-        "\033[7;32mTRACE\033[0m",
-        "\033[7;35mDEBUG\033[0m",
-        "\033[7;34mINFO \033[0m",
-        "\033[7;33mWARN \033[0m",
-        "\033[7;31mERROR\033[0m",
-        "\033[5;41mFATAL\033[0m"};
-    static inline const char **lv2Str_global = LV2STR;
-
-    using OutputFunction = std::function<void(const std::string &msg)>;
-    using FlushFunction = std::function<void(void)>;
-    static void output_stdout(const std::string &msg) { printf("%s", msg.c_str()); }
-    static void flush_stdout() { fflush(stdout); }
-    static inline OutputFunction outputFunction_global = output_stdout;
-    static inline FlushFunction flushFunction_global = flush_stdout;
-
-    Level level_;
-    std::string header_;
-    std::string text_;
-
-public:
-    Logger(const Level &level,
-           const std::string &filename,
-           const std::string &funcname,
-           const int line) : level_(level)
-    {
-        char buf[512] = {};
-        sprintf(buf, "%s %s [%d]%s:%d:%s > ",
-                Timestamp().toFormattedString(true).c_str(),
-                lv2Str_global[static_cast<int>(level_)],
-                gettid(),
-                basename(const_cast<char *>(filename.c_str())),
-                line,
-                funcname.c_str());
-        header_ = buf;
-    }
-    ~Logger()
-    {
-        outputFunction_global(header_ + text_ + '\n');
-        if (level_ == Level::FATAL)
-        {
-            flushFunction_global();
-            fprintf(stderr, "****** FATAL Error Occured! Logger Killed the Process! ******\n");
-            exit(EXIT_FAILURE);
-        }
-    }
+    Logger() noexcept = default;
+    ~Logger() noexcept = default;
     Logger(const Logger &) = delete;
     Logger &operator=(const Logger &) = delete;
     Logger(Logger &&) = delete;
     Logger &operator=(Logger &&) = delete;
-    static Level getTriggerLevel() { return triggerLevel_global; }
-    Logger &operator<<(std::string_view sv)
-    {
-        text_ += sv;
-        return *this;
-    }
-    Logger &operator<<(const char *s)
-    {
-        text_ += s;
-        return *this;
-    }
-    Logger &operator<<(char c)
-    {
-        text_ += c;
-        return *this;
-    }
-    template <class T>
-    Logger &operator<<(const T &value)
-    {
-        if constexpr (std::is_arithmetic_v<T>)
-        {
-            text_ += std::to_string(value);
-        }
-        else
-        {
-            std::ostringstream oss;
-            oss << value;
-            text_ += oss.str();
-        }
-        return *this;
-    }
 
-    static void setTriggerLevel(const Level &level) { triggerLevel_global = level; }
-    static void setTerminalVivid() { lv2Str_global = LV2STR_vivid; }
-    static void setOutputFunction(const OutputFunction &outputFunction) { outputFunction_global = outputFunction; }
-    static void setFlushFunction(const FlushFunction &flushFunction) { flushFunction_global = flushFunction; }
+public:
+    inline static Logger &getInstance()
+    {
+        static Logger instance;
+        return instance;
+    }
+    template <typename... Args>
+    inline void log(LEVEL level, const char *file, int line, const char *func,
+                    std::format_string<Args...> fmt, Args &&...args)
+    {
+        thread_local std::string msg;
+        msg.clear();
+        if (msg.capacity() < 256)
+            msg.reserve(256);
+        std::format_to(std::back_inserter(msg), "{} {} [{}]{}:{}:{} >",
+                       Timestamp().toFormattedString(),
+                       options_.lv2str[static_cast<int>(level)],
+                       gettid(), file, line, func);
+        std::vformat_to(std::back_inserter(msg), fmt.get(),
+                        std::make_format_args(args...));
+        msg.push_back('\n');
+        options_.outputFunction(msg);
+        if (level == LEVEL::FATAL)
+        {
+            options_.flushFunction();
+            exit(EXIT_FAILURE);
+        }
+    }
+    inline void log(LEVEL level, const char *file, int line, const char *func,
+                    std::string_view fmt)
+    {
+        thread_local std::string msg;
+        msg.clear();
+        if (msg.capacity() < 256)
+            msg.reserve(256);
+        std::format_to(std::back_inserter(msg), "{} {} [{}]{}:{}:{} >{}\n",
+                       Timestamp().toFormattedString(),
+                       options_.lv2str[static_cast<int>(level)],
+                       gettid(), file, line, func, fmt);
+        options_.outputFunction(msg);
+        if (level == LEVEL::FATAL)
+        {
+            options_.flushFunction();
+            exit(EXIT_FAILURE);
+        }
+    }
+    inline LEVEL getSuppressLevel() const noexcept
+    {
+        return options_.suppressLevel;
+    }
+    inline static void setSuppressLevel(LEVEL level) noexcept
+    {
+        getInstance().options_.suppressLevel = level;
+    }
+    inline static void setTerminalVivid() noexcept
+    {
+        getInstance().options_.lv2str = OptionsLogger::LV2STR_vivid.data();
+    }
+    inline static void setOutputFunction(const OutputFunction &outputFunc) noexcept
+    {
+        getInstance().options_.outputFunction = outputFunc;
+    }
+    inline static void setFlushFunction(const FlushFunction &flushFunc) noexcept
+    {
+        getInstance().options_.flushFunction = flushFunc;
+    }
 };
 
-#define LOG_TRACE                                          \
-    if (Logger::Level::TRACE >= Logger::getTriggerLevel()) \
-    Logger(Logger::Level::TRACE, __FILE__, __func__, __LINE__)
+#define LOG_TRACE(...)                                           \
+    if (LEVEL::TRACE < Logger::getInstance().getSuppressLevel()) \
+        ;                                                        \
+    else                                                         \
+        Logger::getInstance().log(LEVEL::TRACE, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define LOG_DEBUG                                          \
-    if (Logger::Level::DEBUG >= Logger::getTriggerLevel()) \
-    Logger(Logger::Level::DEBUG, __FILE__, __func__, __LINE__)
+#define LOG_DEBUG(...)                                           \
+    if (LEVEL::DEBUG < Logger::getInstance().getSuppressLevel()) \
+        ;                                                        \
+    else                                                         \
+        Logger::getInstance().log(LEVEL::DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define LOG_INFO                                          \
-    if (Logger::Level::INFO >= Logger::getTriggerLevel()) \
-    Logger(Logger::Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_INFO(...)                                           \
+    if (LEVEL::INFO < Logger::getInstance().getSuppressLevel()) \
+        ;                                                       \
+    else                                                        \
+        Logger::getInstance().log(LEVEL::INFO, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define LOG_WARN                                          \
-    if (Logger::Level::WARN >= Logger::getTriggerLevel()) \
-    Logger(Logger::Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_WARN(...)                                           \
+    if (LEVEL::WARN < Logger::getInstance().getSuppressLevel()) \
+        ;                                                       \
+    else                                                        \
+        Logger::getInstance().log(LEVEL::WARN, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define LOG_ERROR Logger(Logger::Level::ERROR, __FILE__, __func__, __LINE__)
+#define LOG_ERROR(...) Logger::getInstance().log(LEVEL::ERROR, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define LOG_FATAL Logger(Logger::Level::FATAL, __FILE__, __func__, __LINE__)
+#define LOG_FATAL(...) Logger::getInstance().log(LEVEL::FATAL, __FILE__, __LINE__, __func__, __VA_ARGS__)
