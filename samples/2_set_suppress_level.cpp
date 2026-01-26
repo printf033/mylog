@@ -1,8 +1,19 @@
 #include "logger.hpp"
 
-int main()
+int main(int argc, char *argv[])
 {
-    Logger::setSuppressLevel(LEVEL::DEBUG);
+    std::filesystem::path config = std::filesystem::current_path();
+    switch (argc)
+    {
+    case 2:
+        config = argv[1];
+        [[fallthrough]];
+    default:
+        std::cout << "config file path: " << config << std::endl;
+    }
+    Configer::getInstance().load(config);
+
+    // Logger::getInstance().setSuppressLevel(LEVEL::INFO);
 
     LOG_TRACE("mylog {}", 1);
     LOG_DEBUG("mylog {}", 2);

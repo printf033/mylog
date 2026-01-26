@@ -15,9 +15,10 @@ class MultiBuffer
     size_t pos_ = 0;
 
 private:
-    MultiBuffer()
+    MultiBuffer() noexcept
+        : options_(Configer::getInstance().optMultiBuffer)
     {
-        preBuffer_.reserve(options_.bufCapa);
+        preBuffer_.reserve(options_.preBufferCapacity);
     }
     ~MultiBuffer()
     {
@@ -42,7 +43,7 @@ public:
     {
         const char *cursor = msg.data();
         size_t rest = msg.size();
-        thread_local std::vector<char> localBuffer(options_.bufCapa);
+        thread_local std::vector<char> localBuffer(options_.preBufferCapacity);
         while (rest > 0)
         {
             std::unique_lock<std::mutex> locker(mtx_);
@@ -66,7 +67,7 @@ public:
     }
     void flushBuffer_r()
     {
-        thread_local std::vector<char> localBuffer(options_.bufCapa);
+        thread_local std::vector<char> localBuffer(options_.preBufferCapacity);
         mtx_.lock();
         std::swap(preBuffer_, localBuffer);
         size_t len = pos_;

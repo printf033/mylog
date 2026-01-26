@@ -16,15 +16,16 @@ class FileManager
     std::mutex mtx_;
 
 private:
-    FileManager()
+    FileManager() noexcept
+        : options_(Configer::getInstance().optFileManager)
     {
-        pBuffer_ = new char[options_.fileBufCapa];
+        pBuffer_ = new char[options_.fileBufferCapacity];
         lastFlushTime_.update();
         pFile_ = fopen(
             std::format("{}_{}_{}.log", lastFlushTime_.toString(), options_.basename, getpid()).c_str(),
             "a");
         if (pBuffer_ != nullptr && pFile_ != nullptr)
-            setvbuf(pFile_, pBuffer_, _IOFBF, options_.fileBufCapa);
+            setvbuf(pFile_, pBuffer_, _IOFBF, options_.fileBufferCapacity);
     }
     ~FileManager() noexcept
     {
@@ -57,7 +58,7 @@ public:
         if (pFile_ == nullptr)
             return;
         if (lastFlushTime_.getDiffDays() > std::chrono::days(0) ||
-            fileSize_ >= options_.fileCapa)
+            fileSize_ >= options_.fileCapacity)
         {
             fflush(pFile_);
             fclose(pFile_);
@@ -91,10 +92,6 @@ public:
     {
         std::lock_guard<std::mutex> locker(mtx_);
         flushFile();
-    }
-    inline static void setBasename(std::string_view basename)
-    {
-        getInstance().options_.basename = basename;
     }
     inline static void outputFunction_file(std::string_view msg)
     {

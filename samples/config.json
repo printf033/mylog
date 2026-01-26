@@ -1,0 +1,16 @@
+{
+    "logger": {
+        "suppressLevel": "Trace",
+        "stdoutVivid": false
+    },
+    "fileManager": {
+        "fileBufferCapacity": 2097152,
+        "fileCapacity": 104857600,
+        "basename": "mylog",
+        "intervalFlushFile": 30
+    },
+    "multiBuffer": {
+        "preBufferCapacity": 1048576,
+        "intervalFlushBuffer": 5
+    }
+}

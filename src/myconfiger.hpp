@@ -1,11 +1,5 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
-#include <functional>
-#include <string>
-#include <iostream>
-#include <chrono>
-
 enum class LEVEL
 {
     TRACE = 0,
@@ -16,53 +10,14 @@ enum class LEVEL
     FATAL
 };
 
+#include <functional>
+#include <string>
+
 using OutputFunction = std::function<void(std::string_view msg)>;
 
 using FlushFunction = std::function<void(void)>;
 
-using json = nlohmann::json;
-
-// --- 针对 std::chrono::seconds 的转换 ---
-namespace std::chrono
-{
-    void from_json(const json &j, seconds &s)
-    {
-        s = seconds(j.get<long long>());
-    }
-}
-
-// --- 针对 LEVEL 枚举的转换 (假设你定义了 LEVEL) ---
-// 如果 LEVEL 是 enum class，需要指定映射
-
-NLOHMANN_JSON_SERIALIZE_ENUM(LEVEL, {
-                                        {LEVEL::TRACE, "TRACE"},
-                                        {LEVEL::DEBUG, "DEBUG"},
-                                        {LEVEL::INFO, "INFO"},
-                                        {LEVEL::WARN, "WARN"},
-                                        {LEVEL::ERROR, "ERROR"},
-                                        {LEVEL::FATAL, "FATAL"},
-                                    })
-
-
-// --- 针对各个 Options 的映射 ---
-
-inline void from_json(const json& j, OptionsLogger& o) {
-    if (j.contains("suppressLevel")) o.suppressLevel = j.at("suppressLevel").get<LEVEL>();
-    // 注意：lv2str 和 function 对象通常不从 JSON 初始化，保持默认即可
-}
-
-inline void from_json(const json& j, OptionsFileManager& o) {
-    if (j.contains("fileBufCapa")) j.at("fileBufCapa").get_to(o.fileBufCapa);
-    if (j.contains("fileCapa"))    j.at("fileCapa").get_to(o.fileCapa);
-    if (j.contains("basename"))    o.basename = j.at("basename").get<std::string>().c_str(); 
-    // 注意：basename 是 const char*，需要注意生命周期，建议结构体改用 std::string
-    if (j.contains("intervalFlushFile")) j.at("intervalFlushFile").get_to(o.intervalFlushFile);
-}
-
-inline void from_json(const json& j, OptionsMultiBuffer& o) {
-    if (j.contains("bufCapa"))             j.at("bufCapa").get_to(o.bufCapa);
-    if (j.contains("intervalFlushBuffer")) j.at("intervalFlushBuffer").get_to(o.intervalFlushBuffer);
-}
+#include <iostream>
 
 struct OptionsLogger
 {
@@ -84,43 +39,117 @@ struct OptionsLogger
          "\033[5;41mFATAL\033[0m"};
 };
 
+#include <chrono>
+
 struct OptionsFileManager
 {
-    size_t fileBufCapa = 1048576UL; // 1M
-    size_t fileCapa = 104857600UL;  // 100M
+    size_t fileBufferCapacity = 2097152UL; // 2M
+    size_t fileCapacity = 104857600UL;     // 100M
     std::string basename = "mylog";
-    std::chrono::seconds intervalFlushFile{10};
+    std::chrono::seconds intervalFlushFile{30};
 };
 
 struct OptionsMultiBuffer
 {
-    size_t bufCapa = 1048576UL; // 1M
-    std::chrono::seconds intervalFlushBuffer{1};
+    size_t preBufferCapacity = 1048576UL; // 1M
+    std::chrono::seconds intervalFlushBuffer{5};
 };
 
 #include <fstream>
+#include <nlohmann/json.hpp>
 
-class Configer {
-public:
-    OptionsLogger loggerOpt;
-    OptionsFileManager fileOpt;
-    OptionsMultiBuffer bufferOpt;
+namespace std::chrono
+{
+    void from_json(const nlohmann::json &res, seconds &var)
+    {
+        var = seconds(res.get<int64_t>());
+    }
+}
 
-    bool load(const std::string& path) {
-        std::ifstream f(path);
-        if (!f.is_open()) return false;
+NLOHMANN_JSON_SERIALIZE_ENUM(LEVEL, {
+                                        {LEVEL::TRACE, "TRACE"},
+                                        {LEVEL::DEBUG, "DEBUG"},
+                                        {LEVEL::INFO, "INFO"},
+                                        {LEVEL::WARN, "WARN"},
+                                        {LEVEL::ERROR, "ERROR"},
+                                        {LEVEL::FATAL, "FATAL"},
+                                    })
+inline void from_json(const nlohmann::json &res, OptionsLogger &var)
+{
+    if (res.contains("suppressLevel"))
+        var.suppressLevel = res.at("suppressLevel").get<LEVEL>();
+    if (res.contains("stdoutVivid"))
+    {
+        if (res.at("stdoutVivid").get<bool>())
+        {
+            var.lv2str = var.LV2STR_vivid.data();
+        }
+        else
+        {
+            var.lv2str = var.LV2STR.data();
+        }
+    }
+}
 
-        try {
-            json data = json::parse(f);
+inline void from_json(const nlohmann::json &res, OptionsFileManager &var)
+{
+    if (res.contains("fileBufferCapacity"))
+        res.at("fileBufferCapacity").get_to(var.fileBufferCapacity);
+    if (res.contains("fileCapacity"))
+        res.at("fileCapacity").get_to(var.fileCapacity);
+    if (res.contains("basename"))
+        res.at("basename").get_to(var.basename);
+    if (res.contains("intervalFlushFile"))
+        res.at("intervalFlushFile").get_to(var.intervalFlushFile);
+}
 
-            if (data.contains("logger")) data.at("logger").get_to(loggerOpt);
-            if (data.contains("file"))   data.at("file").get_to(fileOpt);
-            if (data.contains("buffer")) data.at("buffer").get_to(bufferOpt);
-            
+inline void from_json(const nlohmann::json &res, OptionsMultiBuffer &var)
+{
+    if (res.contains("preBufferCapacity"))
+        res.at("preBufferCapacity").get_to(var.preBufferCapacity);
+    if (res.contains("intervalFlushBuffer"))
+        res.at("intervalFlushBuffer").get_to(var.intervalFlushBuffer);
+}
+
+struct Configer
+{
+    OptionsLogger optLogger;
+    OptionsFileManager optFileManager;
+    OptionsMultiBuffer optMultiBuffer;
+
+    inline static Configer &getInstance() noexcept
+    {
+        static Configer instance;
+        return instance;
+    }
+    bool load(const std::filesystem::path &config)
+    {
+        std::ifstream ifs(config);
+        if (!ifs.is_open())
+            return false;
+        try
+        {
+            nlohmann::json data = nlohmann::json::parse(ifs);
+            if (data.contains("logger"))
+                data.at("logger").get_to(optLogger);
+            if (data.contains("fileManager"))
+                data.at("fileManager").get_to(optFileManager);
+            if (data.contains("multiBuffer"))
+                data.at("multiBuffer").get_to(optMultiBuffer);
             return true;
-        } catch (json::exception& e) {
-            std::cerr << "Config parse error: " << e.what() << std::endl;
+        }
+        catch (nlohmann::json::exception &e)
+        {
+            std::cerr << "Config Parse Error: " << e.what() << std::endl;
             return false;
         }
     }
+
+private:
+    Configer() noexcept = default;
+    ~Configer() noexcept = default;
+    Configer(const Configer &) = delete;
+    Configer &operator=(const Configer &) = delete;
+    Configer(Configer &&) noexcept = delete;
+    Configer &operator=(Configer &&) noexcept = delete;
 };

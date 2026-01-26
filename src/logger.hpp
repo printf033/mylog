@@ -10,12 +10,12 @@ class Logger
 {
     OptionsLogger options_;
 
-    Logger() noexcept = default;
+    Logger() noexcept : options_(Configer::getInstance().optLogger) {}
     ~Logger() noexcept = default;
     Logger(const Logger &) = delete;
     Logger &operator=(const Logger &) = delete;
-    Logger(Logger &&) = delete;
-    Logger &operator=(Logger &&) = delete;
+    Logger(Logger &&) noexcept = delete;
+    Logger &operator=(Logger &&) noexcept = delete;
 
 public:
     inline static Logger &getInstance()
@@ -67,21 +67,17 @@ public:
     {
         return options_.suppressLevel;
     }
-    inline static void setSuppressLevel(LEVEL level) noexcept
+    inline void setSuppressLevel(LEVEL level) noexcept
     {
-        getInstance().options_.suppressLevel = level;
+        options_.suppressLevel = level;
     }
-    inline static void setTerminalVivid() noexcept
+    inline void setOutputFunction(const OutputFunction &outputFunc) noexcept
     {
-        getInstance().options_.lv2str = OptionsLogger::LV2STR_vivid.data();
+        options_.outputFunction = outputFunc;
     }
-    inline static void setOutputFunction(const OutputFunction &outputFunc) noexcept
+    inline void setFlushFunction(const FlushFunction &flushFunc) noexcept
     {
-        getInstance().options_.outputFunction = outputFunc;
-    }
-    inline static void setFlushFunction(const FlushFunction &flushFunc) noexcept
-    {
-        getInstance().options_.flushFunction = flushFunc;
+        options_.flushFunction = flushFunc;
     }
 };
 
