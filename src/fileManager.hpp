@@ -53,6 +53,9 @@ public:
         static FileManager instance;
         return instance;
     }
+#ifdef __ANDROID__
+#define fwrite_unlocked fwrite
+#endif
     void appendFile(std::string_view msg)
     {
         if (pFile_ == nullptr)
