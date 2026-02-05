@@ -102,26 +102,26 @@ public:
     if (LEVEL::TRACE < Logger::getInstance().getSuppressLevel()) \
         ;                                                        \
     else                                                         \
-        Logger::getInstance().log(LEVEL::TRACE, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+        Logger::getInstance().log(LEVEL::TRACE, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
 
 #define LOG_DEBUG(...)                                           \
     if (LEVEL::DEBUG < Logger::getInstance().getSuppressLevel()) \
         ;                                                        \
     else                                                         \
-        Logger::getInstance().log(LEVEL::DEBUG, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+        Logger::getInstance().log(LEVEL::DEBUG, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
 
 #define LOG_INFO(...)                                           \
     if (LEVEL::INFO < Logger::getInstance().getSuppressLevel()) \
         ;                                                       \
     else                                                        \
-        Logger::getInstance().log(LEVEL::INFO, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+        Logger::getInstance().log(LEVEL::INFO, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
 
 #define LOG_WARN(...)                                           \
     if (LEVEL::WARN < Logger::getInstance().getSuppressLevel()) \
         ;                                                       \
     else                                                        \
-        Logger::getInstance().log(LEVEL::WARN, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+        Logger::getInstance().log(LEVEL::WARN, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
 
-#define LOG_ERROR(...) Logger::getInstance().log(LEVEL::ERROR, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_ERROR(...) Logger::getInstance().log(LEVEL::ERROR, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
 
-#define LOG_FATAL(...) Logger::getInstance().log(LEVEL::FATAL, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define LOG_FATAL(...) Logger::getInstance().log(LEVEL::FATAL, __FILE__, __LINE__, __func__ __VA_OPT__(,) ##__VA_ARGS__)
