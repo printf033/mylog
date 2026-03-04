@@ -1,13 +1,14 @@
 add_library(interface_mylog INTERFACE)
 
-find_package(nlohmann_json 3.12 REQUIRED)
+find_package(Lua 5.4 REQUIRED)
 
 target_link_libraries(interface_mylog INTERFACE
-    nlohmann_json::nlohmann_json
+    ${LUA_LIBRARIES}
 )
 
 target_include_directories(interface_mylog INTERFACE
     ${CMAKE_SOURCE_DIR}/src
+    ${LUA_INCLUDE_DIRS}
 )
 
 target_compile_features(interface_mylog INTERFACE
@@ -24,5 +25,5 @@ target_link_options(interface_mylog INTERFACE
 )
 
 target_compile_definitions(interface_mylog INTERFACE
-    USE_NLOHMANN_JSON
+    # USE_LUA
 )

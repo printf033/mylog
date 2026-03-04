@@ -5,7 +5,7 @@
 
 int main(int argc, char *argv[])
 {
-    std::filesystem::path config = std::filesystem::current_path();
+    std::filesystem::path config = std::filesystem::current_path() / "../samples/config.lua";
     switch (argc)
     {
     case 2:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myconfiger.hpp"
+#include "configer.hpp"
 #include "timestamp.hpp"
 #include <string>
 #include <mutex>
@@ -53,7 +53,7 @@ public:
         static FileManager instance;
         return instance;
     }
-#ifdef __ANDROID__
+#ifndef __GLIBC__
 #define fwrite_unlocked fwrite
 #endif
     void appendFile(std::string_view msg)
