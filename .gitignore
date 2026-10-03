@@ -1,1 +1,6 @@
+.vscode/
+.codewhale/
 build/
+
+*.log
+*.gitignore
