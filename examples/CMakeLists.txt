@@ -4,7 +4,7 @@ function(gen_bin name)
 
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-    target_link_libraries(${name} PRIVATE mylog_interface mylog_sanitized)
+    target_link_libraries(${name} PRIVATE mylog mylog_sanitized)
 
 endfunction()
 

@@ -361,7 +361,7 @@ fileManager = {
 add_subdirectory(path/to/mylog/src)
 
 # 核心接口（零第三方依赖）：
-target_link_libraries(your_project PRIVATE interface_mylog)
+target_link_libraries(your_project PRIVATE mylog)
 
 # 若需使用 Lua 配置热加载（链接 LuaJIT）：
 target_link_libraries(your_project PRIVATE mylog_lua)
@@ -391,8 +391,8 @@ cmake --build build_release --target bench
 
 | 开关名称 | 默认值 | 作用说明 |
 | :--- | :---: | :--- |
-| `MYLOG_BUILD_EXAMPLES` | `ON` | 构建 `example/` 下的示例程序 |
-| `MYLOG_BUILD_TESTS` | `ON` | 构建 `test/` 下的自动化测试套件 |
+| `MYLOG_BUILD_EXAMPLES` | `ON` | 构建 `examples/` 下的示例程序 |
+| `MYLOG_BUILD_TESTS` | `ON` | 构建 `tests/` 下的自动化测试套件 |
 | `MYLOG_BUILD_BENCH` | `ON` | 构建 `bench/` 下的性能微基准测试程序 |
 | `MYLOG_SANITIZE` | `ON` | 在 Debug 模式下启用 ASan / UBSan 内存检测 |
 | `MYLOG_BUILD_TSAN_TEST` | `OFF` | 构建独立的 ThreadSanitizer 线程竞态检测目标 |
@@ -415,7 +415,7 @@ cmake --build build_release --target bench
 > ```bash
 > git config core.hooksPath .githooks
 > # 或执行安装脚本：
-> bash script/setup-hooks.sh
+> bash scripts/setup-hooks.sh
 > ```
 
 ---
@@ -430,18 +430,18 @@ cmake --build build_release --target bench
 ├── .clang-tidy                 # C++ 命名约定与静态检查规则
 ├── .githooks/                  # Git Commit 提交前自动化代码排版门禁
 ├── .github/                    # GitHub Actions 自动化 CI 门禁流水线
-├── script/                     # 开发者辅助脚本（如 setup-hooks.sh）
+├── scripts/                    # 开发者辅助脚本（如 setup-hooks.sh）
 ├── assets/                     # 架构与数据流高清矢量图（SVG）
 │   ├── architecture.svg        # 英文架构全景与高性能数据流图
 │   └── architecture_zh.svg     # 中文架构全景与高性能数据流图
 ├── src/                        # 核心头文件目录（Header-only）
-│   ├── CMakeLists.txt          # 定义 interface_mylog 与 mylog_lua 目标
+│   ├── CMakeLists.txt          # 定义 mylog 与 mylog_lua 目标
 │   ├── logger.hpp              # 日志核心引擎、std::format 封装、级别与无宏 API
 │   ├── reflection.hpp          # C++26 静态反射（枚举/结构体打印、脱敏）
 │   ├── configHolder.hpp        # 基于代次计数的无锁配置快照管理器
 │   ├── fileManager.hpp         # 落盘引擎、线程局部缓冲、文件滚动与保留清理
 │   └── configer_lua.hpp        # 可选的沙箱化 Lua 配置热重载组件
-├── example/                    # 示例代码
+├── examples/                   # 示例代码
 │   ├── 1_a_simple_start.cpp    # 快速上手（控制台输出）
 │   ├── 2_set_suppress_level.cpp# 级别过滤与 Lua 配置加载示例
 │   ├── 3_output_to_file.cpp    # 多线程共享单文件落盘演示
@@ -452,9 +452,9 @@ cmake --build build_release --target bench
 ├── bench/                      # 性能基准测试
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # 多线程吞吐与延迟基准测试程序
-└── test/                       # 单元与集成测试套件
+└── tests/                      # 单元与集成测试套件
     ├── CMakeLists.txt
-    └── mylog_test.cpp          # 包含 174 项覆盖并发、注入、滚动、反射、安全性的测试
+    └── test.cpp                # 包含 174 项覆盖并发、注入、滚动、反射、安全性的测试
 ```
 
 ---

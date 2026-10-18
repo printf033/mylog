@@ -1,5 +1,5 @@
 /**
- * @file mylog_test.cpp
+ * @file test.cpp
  * @brief mylog 全量功能、高并发完整性与安全加固验证测试套件
  *
  * 覆盖范围：
@@ -1150,7 +1150,7 @@ namespace
         mylog::info("hello {} and {}", "modern", 2026);
         std::string out1 = captured();
         CHECK(out1.find("hello modern and 2026") != std::string::npos);
-        CHECK(out1.find("mylog_test.cpp:" + std::to_string(expectedLine1)) != std::string::npos);
+        CHECK(out1.find("test.cpp:" + std::to_string(expectedLine1)) != std::string::npos);
         CHECK(out1.find("INFO") != std::string::npos);
 
         // 2. mylog::debug 纯文本重载
@@ -1159,7 +1159,7 @@ namespace
         mylog::debug("simple debug message");
         std::string out2 = captured();
         CHECK(out2.find("simple debug message") != std::string::npos);
-        CHECK(out2.find("mylog_test.cpp:" + std::to_string(expectedLine2)) != std::string::npos);
+        CHECK(out2.find("test.cpp:" + std::to_string(expectedLine2)) != std::string::npos);
         CHECK(out2.find("DEBUG") != std::string::npos);
 
         // 3. mylog::trace / mylog::warn / mylog::error

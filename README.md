@@ -362,7 +362,7 @@ As a header-only library, link the interface target directly:
 add_subdirectory(path/to/mylog/src)
 
 # Core library (Zero third-party dependencies):
-target_link_libraries(your_project PRIVATE interface_mylog)
+target_link_libraries(your_project PRIVATE mylog)
 
 # Optional Lua config reload (links LuaJIT):
 target_link_libraries(your_project PRIVATE mylog_lua)
@@ -392,8 +392,8 @@ cmake --build build_release --target bench
 
 | Option | Default | Description |
 | :--- | :---: | :--- |
-| `MYLOG_BUILD_EXAMPLES` | `ON` | Build example executables in `example/` |
-| `MYLOG_BUILD_TESTS` | `ON` | Build automated test suite in `test/` |
+| `MYLOG_BUILD_EXAMPLES` | `ON` | Build example executables in `examples/` |
+| `MYLOG_BUILD_TESTS` | `ON` | Build automated test suite in `tests/` |
 | `MYLOG_BUILD_BENCH` | `ON` | Build benchmark executable in `bench/` |
 | `MYLOG_SANITIZE` | `ON` | Enable ASan and UBSan in Debug builds |
 | `MYLOG_BUILD_TSAN_TEST` | `OFF` | Build dedicated ThreadSanitizer test target |
@@ -416,7 +416,7 @@ The project enforces strict code style and static verification across multiple t
 > ```bash
 > git config core.hooksPath .githooks
 > # Or execute setup script:
-> bash script/setup-hooks.sh
+> bash scripts/setup-hooks.sh
 > ```
 
 ---
@@ -431,18 +431,18 @@ The project enforces strict code style and static verification across multiple t
 ├── .clang-tidy                 # C++ naming conventions and static analysis rules
 ├── .githooks/                  # Git pre-commit hook for automated style enforcement
 ├── .github/                    # GitHub Actions CI pipeline
-├── script/                     # Development helper scripts (e.g. setup-hooks.sh)
+├── scripts/                    # Development helper scripts (e.g. setup-hooks.sh)
 ├── assets/                     # High-resolution architectural vector diagrams (SVG)
 │   ├── architecture.svg        # Architecture and high-performance data flow diagram (EN)
 │   └── architecture_zh.svg     # Architecture and high-performance data flow diagram (ZH)
 ├── src/                        # Core header-only library
-│   ├── CMakeLists.txt          # interface_mylog & mylog_lua definitions
+│   ├── CMakeLists.txt          # mylog & mylog_lua definitions
 │   ├── logger.hpp              # Core logging engine, std::format, levels, macro-free API
 │   ├── reflection.hpp          # C++26 static reflection (struct/enum formatter, masking)
 │   ├── configHolder.hpp        # Lock-free generation-counter config snapshot manager
 │   ├── fileManager.hpp         # Storage engine, TLS buffer, rotation & retention
 │   └── configer_lua.hpp        # Optional sandboxed Lua configuration reload
-├── example/                    # Practical examples
+├── examples/                   # Practical examples
 │   ├── 1_a_simple_start.cpp    # Quick start console logging
 │   ├── 2_set_suppress_level.cpp# Level filtering and Lua configuration reload
 │   ├── 3_output_to_file.cpp    # Multi-threaded shared single file logging
@@ -453,9 +453,9 @@ The project enforces strict code style and static verification across multiple t
 ├── bench/                      # Performance micro-benchmarks
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # Multi-threaded throughput and latency benchmark
-└── test/                       # Unit and integration test suite
+└── tests/                      # Unit and integration test suite
     ├── CMakeLists.txt
-    └── mylog_test.cpp          # 174 automated test checks covering safety, rolling, reflection
+    └── test.cpp                # 174 automated test checks covering safety, rolling, reflection
 ```
 
 ---

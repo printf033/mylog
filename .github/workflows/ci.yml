@@ -34,7 +34,7 @@ jobs:
       - name: Verify Code Formatting (clang-format)
         run: |
           CHECK_DIRS=()
-          for d in src example test bench; do
+          for d in src examples tests bench; do
             [ -d "$d" ] && CHECK_DIRS+=("$d")
           done
 

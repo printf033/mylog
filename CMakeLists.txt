@@ -22,12 +22,12 @@ option(MYLOG_BUILD_BENCH "Build benchmarks (建议用 Release 构建)" ON)
 add_subdirectory(src)
 
 if(MYLOG_BUILD_EXAMPLES OR MYLOG_BUILD_SAMPLES)
-    add_subdirectory(example)
+    add_subdirectory(examples)
 endif()
 
 if(MYLOG_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(test)
+    add_subdirectory(tests)
 endif()
 
 if(MYLOG_BUILD_BENCH)
@@ -39,10 +39,10 @@ if(CLANG_FORMAT_EXE)
     file(GLOB_RECURSE MYLOG_CXX_FILES
         ${CMAKE_SOURCE_DIR}/src/*.hpp
         ${CMAKE_SOURCE_DIR}/src/*.cpp
-        ${CMAKE_SOURCE_DIR}/example/*.hpp
-        ${CMAKE_SOURCE_DIR}/example/*.cpp
-        ${CMAKE_SOURCE_DIR}/test/*.hpp
-        ${CMAKE_SOURCE_DIR}/test/*.cpp
+        ${CMAKE_SOURCE_DIR}/examples/*.hpp
+        ${CMAKE_SOURCE_DIR}/examples/*.cpp
+        ${CMAKE_SOURCE_DIR}/tests/*.hpp
+        ${CMAKE_SOURCE_DIR}/tests/*.cpp
         ${CMAKE_SOURCE_DIR}/bench/*.hpp
         ${CMAKE_SOURCE_DIR}/bench/*.cpp
     )
