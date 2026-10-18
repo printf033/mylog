@@ -4,14 +4,13 @@ function(gen_bin name)
 
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-    target_link_libraries(${name} PRIVATE interface_mylog mylog_sanitized)
+    target_link_libraries(${name} PRIVATE mylog_interface mylog_sanitized)
 
 endfunction()
 
-# 只使用核心 API 的样例不链接 Lua
 gen_bin(1_a_simple_start)
+gen_bin(5_reflection)
 
-# 这三个样例调用 mylog::reloadConfig()，需要 configer_lua.hpp 与 LuaJIT
 function(gen_bin_lua name)
 
     add_executable(${name} ${name}.cpp)

@@ -1,0 +1,57 @@
+#!/bin/bash
+set -e
+
+CLANG_FORMAT=$(command -v clang-format 2>/dev/null || true)
+if [ -z "$CLANG_FORMAT" ]; then
+    echo "❌ [mylog pre-commit error] clang-format is not installed or not in PATH!" >&2
+    echo "   Hard constraint policy: you MUST install clang-format to commit code." >&2
+    echo "   Ubuntu/Debian: sudo apt-get install clang-format" >&2
+    echo "   Arch Linux:    sudo pacman -S clang" >&2
+    echo "   macOS:         brew install clang-format" >&2
+    exit 1
+fi
+
+if ! "$CLANG_FORMAT" --help | grep -q -- '--dry-run'; then
+    echo "❌ [mylog pre-commit error] Installed clang-format is too old (requires LLVM 10+ for --dry-run)." >&2
+    exit 1
+fi
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    AGAINST="HEAD"
+else
+    AGAINST="$(git hash-object -t tree /dev/null)"
+fi
+
+if ! git diff-index --check --cached "$AGAINST" -- 2>/dev/null; then
+    echo "❌ [mylog pre-commit error] Staged changes contain conflict markers or whitespace corruptions!" >&2
+    exit 1
+fi
+
+UNFORMATTED=()
+
+while IFS= read -r -d '' file; do
+    if [[ "$file" =~ \.(cpp|hpp|c|h|cc|cxx|hxx)$ ]]; then
+        mode=$(git ls-files --stage -- "$file" | awk '{print $1}')
+        if [ "$mode" = "120000" ]; then
+            continue
+        fi
+
+        if ! git show ":$file" | "$CLANG_FORMAT" --dry-run -Werror --assume-filename="$file" >/dev/null 2>&1; then
+            UNFORMATTED+=("$file")
+        fi
+    fi
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+if [ ${#UNFORMATTED[@]} -gt 0 ]; then
+    echo -e "❌ [mylog pre-commit error] Staged files failed clang-format verification:" >&2
+    for f in "${UNFORMATTED[@]}"; do
+        echo -e "  - $f" >&2
+    done
+    echo -e "\n💡 How to fix:" >&2
+    echo -e "  1. Run formatting: clang-format -i <file>" >&2
+    echo -e "  2. Re-stage:      git add <file>" >&2
+    echo -e "  (Note: If you staged changes partially, ensure unstaged hunks are stashed before formatting)." >&2
+    exit 1
+fi
+
+exit 0

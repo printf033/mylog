@@ -1,0 +1,34 @@
+---
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+NamespaceIndentation: All
+
+BreakBeforeBraces: Allman
+
+AccessModifierOffset: -4
+
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+BreakTemplateDeclarations: Yes
+PackConstructorInitializers: Never
+ConstructorInitializerIndentWidth: 4
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+FixNamespaceComments: true
+SpacesBeforeTrailingComments: 1
+...

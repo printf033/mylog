@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  archlinux-ci:
+    name: Build & Test (Arch Linux / C++26)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install System Dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            base-devel \
+            gcc \
+            clang \
+            cmake \
+            ninja \
+            pkgconf \
+            luajit \
+            git
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify Code Formatting (clang-format)
+        run: |
+          CHECK_DIRS=()
+          for d in src example test bench; do
+            [ -d "$d" ] && CHECK_DIRS+=("$d")
+          done
+
+          if [ ${#CHECK_DIRS[@]} -gt 0 ]; then
+            find "${CHECK_DIRS[@]}" -type f \( -name "*.cpp" -o -name "*.hpp" \) -print0 \
+              | xargs -0 -r clang-format --dry-run -Werror
+          fi
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DMYLOG_BUILD_TESTS=ON \
+            -DMYLOG_BUILD_EXAMPLES=ON \
+            -DMYLOG_BUILD_BENCH=ON \
+            -DMYLOG_SANITIZE=ON
+
+      - name: Build All Targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run Test Suite
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build --output-on-failure --schedule-random

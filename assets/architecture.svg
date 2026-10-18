@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 590" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="header-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1f6feb" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#8957e5" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="card-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#21262d"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#3fb950"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#bc8cff"/>
+    </marker>
+  </defs>
+
+  <style>
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-weight: 700; fill: #f0f6fc; }
+    .heading { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-weight: 600; fill: #e6edf3; font-size: 13px; }
+    .subtext { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-weight: 400; fill: #8b949e; font-size: 11px; }
+    .code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; fill: #79c0ff; }
+    .badge-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-weight: 600; font-size: 10px; fill: #ffffff; }
+  </style>
+
+  <!-- Background Canvas -->
+  <rect width="940" height="590" rx="12" fill="url(#bg-grad)" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Top Banner -->
+  <rect x="25" y="20" width="890" height="42" rx="8" fill="url(#header-grad)" filter="url(#shadow)"/>
+  <text x="45" y="46" class="title" font-size="16" letter-spacing="0.5">mylog System Architecture &amp; High-Performance Data Flow</text>
+  <rect x="740" y="30" width="155" height="22" rx="11" fill="#0d1117" fill-opacity="0.6"/>
+  <text x="752" y="45" class="badge-text" fill="#58a6ff">C++26 Header-Only</text>
+
+  <!-- ==================== LEFT COLUMN: HOT PATH PIPELINE ==================== -->
+
+  <!-- STEP 1: Calling Modern Macro-Free API / Reflection / Macros -->
+  <g filter="url(#shadow)">
+    <rect x="25" y="80" width="565" height="66" rx="8" fill="url(#card-grad)" stroke="#30363d" stroke-width="1.2"/>
+    <text x="40" y="100" class="heading">1. Log Invocation (Macro-Free API / C++26 Reflection / Legacy Macros)</text>
+    <text x="40" y="120" class="code">mylog::info("User: {}", session); // C++26 Reflection &amp; [[=mylog::sensitive]]</text>
+    <text x="40" y="136" class="subtext">trace / debug / info / warn / error / fatal | Legacy LOG_INFO macros supported</text>
+    <rect x="460" y="90" width="118" height="20" rx="4" fill="#1f6feb" fill-opacity="0.25" stroke="#388bfd" stroke-width="1"/>
+    <text x="468" y="104" class="badge-text" fill="#58a6ff">std::source_location</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 307 146 L 307 166" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- STEP 2: Level Filtering Gate -->
+  <g filter="url(#shadow)">
+    <rect x="25" y="166" width="565" height="74" rx="8" fill="url(#card-grad)" stroke="#238636" stroke-width="1.5"/>
+    <rect x="35" y="176" width="245" height="54" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+    <text x="45" y="196" class="heading" fill="#3fb950">Compile-Time Elimination</text>
+    <text x="45" y="216" class="code" fill="#7ee787">MYLOG_ACTIVE_LEVEL</text>
+    <text x="175" y="216" class="subtext">(if constexpr)</text>
+
+    <!-- Fast Path Pass Badge -->
+    <rect x="290" y="183" width="34" height="40" rx="4" fill="#238636" fill-opacity="0.2"/>
+    <text x="296" y="207" class="badge-text" fill="#3fb950" font-size="12">PASS</text>
+
+    <rect x="335" y="176" width="245" height="54" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+    <text x="345" y="196" class="heading" fill="#58a6ff">Runtime Suppress Filter</text>
+    <text x="345" y="216" class="subtext">Atomic relaxed check: </text>
+    <text x="455" y="216" class="heading" fill="#e3b341" font-size="12">~0.2 ns/op</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 307 240 L 307 264" stroke="#3fb950" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <!-- STEP 3: Formatting, C++26 Reflection, In-Place Buffer & Security Pipeline -->
+  <g filter="url(#shadow)">
+    <rect x="25" y="264" width="565" height="96" rx="8" fill="url(#card-grad)" stroke="#30363d" stroke-width="1.2"/>
+    <text x="40" y="285" class="heading">3. Formatting, C++26 Reflection, Zero-Copy Buffer &amp; Security Pipeline</text>
+
+    <!-- Pipeline Components (4 boxes) -->
+    <rect x="40" y="295" width="128" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
+    <text x="48" y="313" class="heading" font-size="10">C++26 Reflection</text>
+    <text x="48" y="328" class="subtext">&lt;meta&gt; struct/enum expand</text>
+    <text x="48" y="342" class="subtext" fill="#e3b341">[[=sensitive]] masking</text>
+
+    <rect x="176" y="295" width="128" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
+    <text x="184" y="313" class="heading" font-size="10">Zero-Copy In-Place</text>
+    <text x="184" y="328" class="subtext">Direct borrow TLS buffer</text>
+    <text x="184" y="342" class="subtext" fill="#3fb950">Eliminate 2nd memcpy</text>
+
+    <rect x="312" y="295" width="128" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
+    <text x="320" y="313" class="heading" font-size="10">Timestamp &amp; TID</text>
+    <text x="320" y="328" class="subtext">Second cache + ms/UTC</text>
+    <text x="320" y="342" class="subtext">POSIX TID prefix reuse</text>
+
+    <rect x="448" y="295" width="132" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
+    <text x="456" y="313" class="heading" font-size="10">Safety &amp; Hardening</text>
+    <text x="456" y="328" class="subtext">SWAR control escape</text>
+    <text x="456" y="342" class="subtext">Reentrancy + length cap</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 (Splits into 2 branches) -->
+  <path d="M 175 360 L 175 382" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M 445 360 L 445 382" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrow-purple)"/>
+
+  <!-- STEP 4: Dual Storage Engines (FileManager) -->
+  <g filter="url(#shadow)">
+    <rect x="25" y="382" width="565" height="188" rx="8" fill="url(#card-grad)" stroke="#30363d" stroke-width="1.2"/>
+    <text x="40" y="403" class="heading">4. High-Throughput Sinks (FileManager Dual-Mode Backend)</text>
+
+    <!-- Branch A: Shared Single File -->
+    <rect x="40" y="414" width="255" height="144" rx="6" fill="#0d1117" stroke="#1f6feb" stroke-width="1.2"/>
+    <rect x="50" y="422" width="90" height="18" rx="3" fill="#1f6feb" fill-opacity="0.3"/>
+    <text x="56" y="435" class="badge-text" fill="#58a6ff">Shared Single File</text>
+    <text x="50" y="456" class="code" font-size="10">outputFunction_file()</text>
+    <text x="50" y="473" class="subtext">• Borrow TLS write buffer (64 KiB default)</text>
+    <text x="50" y="489" class="subtext">• Atomic Kernel <tspan class="code">O_APPEND</tspan> write(2)</text>
+    <text x="50" y="505" class="subtext">• Hot path: <tspan fill="#3fb950" font-weight="600">Zero User Locks, Zero Copy</tspan></text>
+    <text x="50" y="522" class="subtext">• Bench: <tspan fill="#79c0ff" font-weight="600">117.2 ns/op (8.5M ops/s)</tspan></text>
+    <text x="50" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;.log</text>
+
+    <!-- Branch B: Per-Thread Dedicated Files -->
+    <rect x="305" y="414" width="275" height="144" rx="6" fill="#0d1117" stroke="#8957e5" stroke-width="1.2"/>
+    <rect x="315" y="422" width="95" height="18" rx="3" fill="#8957e5" fill-opacity="0.3"/>
+    <text x="321" y="435" class="badge-text" fill="#d2a8ff">Per-Thread Isolated</text>
+    <text x="315" y="456" class="code" font-size="10">outputFunction_filePerThread()</text>
+    <text x="315" y="473" class="subtext">• Dedicated FD &amp; independent TLS buffer</text>
+    <text x="315" y="489" class="subtext">• Zero inter-thread contention or stall</text>
+    <text x="315" y="505" class="subtext">• Ultimate stable tail latency (p99/p999)</text>
+    <text x="315" y="522" class="subtext">• Independent rotation &amp; retention purge</text>
+    <text x="315" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;_&lt;tid&gt;.log</text>
+  </g>
+
+
+  <!-- ==================== RIGHT COLUMN: CONTROL & STORAGE ==================== -->
+
+  <!-- Dynamic Config Panel -->
+  <g filter="url(#shadow)">
+    <rect x="605" y="80" width="310" height="234" rx="8" fill="url(#card-grad)" stroke="#30363d" stroke-width="1.2"/>
+    <text x="620" y="103" class="heading">Dynamic Config &amp; Hot Reload</text>
+
+    <!-- Generation Counter Mechanism -->
+    <rect x="620" y="112" width="280" height="80" rx="6" fill="#0d1117" stroke="#30363d"/>
+    <text x="630" y="130" class="heading" fill="#58a6ff" font-size="11">ConfigHolder &amp; ConfigSnapshot</text>
+    <text x="630" y="148" class="subtext">• Atomic generation counter <tspan class="code">generation_</tspan></text>
+    <text x="630" y="164" class="subtext">• Fast path: <tspan fill="#3fb950" font-weight="600">Lock-free local read (refConfig)</tspan></text>
+    <text x="630" y="180" class="subtext">• publish invalidates thread snapshots atomically</text>
+
+    <!-- Lua Sandbox -->
+    <rect x="620" y="199" width="280" height="104" rx="6" fill="#0d1117" stroke="#d29922" stroke-width="1.2"/>
+    <text x="630" y="217" class="heading" fill="#d29922" font-size="11">Sandboxed Lua Hot Reload</text>
+    <text x="630" y="235" class="code" font-size="10">mylog::reloadConfig("config.lua")</text>
+    <text x="630" y="252" class="subtext">• C++26 reflection <tspan class="code">template for</tspan> auto parsing</text>
+    <text x="630" y="268" class="subtext">• Enum string mapping ("trace" / "none", no int)</text>
+    <text x="630" y="284" class="subtext">• Bare <tspan class="code">lua_State</tspan>, no os/io/package, transactional</text>
+  </g>
+
+  <!-- Connecting line from Config to Pipeline -->
+  <path d="M 605 150 L 590 150" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+  <!-- File Rotation & Retention -->
+  <g filter="url(#shadow)">
+    <rect x="605" y="325" width="310" height="245" rx="8" fill="url(#card-grad)" stroke="#30363d" stroke-width="1.2"/>
+    <text x="620" y="348" class="heading">Rotation &amp; Retention Policy</text>
+
+    <!-- Capacity-Based Rolling -->
+    <rect x="620" y="358" width="280" height="88" rx="6" fill="#0d1117" stroke="#30363d"/>
+    <text x="630" y="376" class="heading" fill="#3fb950" font-size="11">Capacity-Based Auto Rotation</text>
+    <text x="630" y="394" class="subtext">• Roll to new file when <tspan class="code">fileCapacity</tspan> reached</text>
+    <text x="630" y="410" class="subtext">• Generation <tspan class="code">gen_</tspan> + writers drain gate <tspan class="code">writers_</tspan></text>
+    <text x="630" y="426" class="subtext">• Prevents fd reuse races &amp; log overwrites</text>
+
+    <!-- Incremental Retention Purge -->
+    <rect x="620" y="454" width="280" height="106" rx="6" fill="#0d1117" stroke="#30363d"/>
+    <text x="630" y="472" class="heading" fill="#f0883e" font-size="11">O(1) Incremental Retention Purge</text>
+    <text x="630" y="490" class="subtext">• Keeps at most <tspan class="code">maxFiles</tspan> newest log files</text>
+    <text x="630" y="506" class="subtext">• Baseline scan + <tspan fill="#3fb950" font-weight="600">O(1)</tspan> binary insert &amp; pop</text>
+    <text x="630" y="522" class="subtext">• Eliminates full directory traversals &amp; I/O stalls</text>
+    <text x="630" y="538" class="subtext">• Scoped to current process <tspan class="code">PID</tspan> strictly</text>
+  </g>
+
+  <!-- Connective flow between FileManager and Rolling -->
+  <path d="M 590 480 L 605 480" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+</svg>
