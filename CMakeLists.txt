@@ -37,14 +37,14 @@ endif()
 find_program(CLANG_FORMAT_EXE clang-format)
 if(CLANG_FORMAT_EXE)
     file(GLOB_RECURSE MYLOG_CXX_FILES
-        ${CMAKE_SOURCE_DIR}/src/*.hpp
-        ${CMAKE_SOURCE_DIR}/src/*.cpp
-        ${CMAKE_SOURCE_DIR}/examples/*.hpp
-        ${CMAKE_SOURCE_DIR}/examples/*.cpp
-        ${CMAKE_SOURCE_DIR}/tests/*.hpp
-        ${CMAKE_SOURCE_DIR}/tests/*.cpp
-        ${CMAKE_SOURCE_DIR}/bench/*.hpp
-        ${CMAKE_SOURCE_DIR}/bench/*.cpp
+        ${PROJECT_SOURCE_DIR}/src/*.hpp
+        ${PROJECT_SOURCE_DIR}/src/*.cpp
+        ${PROJECT_SOURCE_DIR}/examples/*.hpp
+        ${PROJECT_SOURCE_DIR}/examples/*.cpp
+        ${PROJECT_SOURCE_DIR}/tests/*.hpp
+        ${PROJECT_SOURCE_DIR}/tests/*.cpp
+        ${PROJECT_SOURCE_DIR}/bench/*.hpp
+        ${PROJECT_SOURCE_DIR}/bench/*.cpp
     )
 
     add_custom_target(format

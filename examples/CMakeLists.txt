@@ -2,7 +2,7 @@ function(gen_bin name)
 
     add_executable(${name} ${name}.cpp)
 
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
     target_link_libraries(${name} PRIVATE mylog mylog_sanitized)
 
@@ -15,7 +15,7 @@ function(gen_bin_lua name)
 
     add_executable(${name} ${name}.cpp)
 
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
     target_link_libraries(${name} PRIVATE mylog_lua mylog_sanitized)
 

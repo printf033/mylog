@@ -1,7 +1,7 @@
 add_library(mylog INTERFACE)
 
 target_include_directories(mylog INTERFACE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_compile_features(mylog INTERFACE
@@ -9,7 +9,7 @@ target_compile_features(mylog INTERFACE
 )
 
 target_compile_options(mylog INTERFACE
-    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=>
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -Wextra -fmacro-prefix-map=${PROJECT_SOURCE_DIR}/=>
     $<$<CXX_COMPILER_ID:GNU>:-freflection>
 )
 

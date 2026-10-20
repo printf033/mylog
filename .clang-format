@@ -27,7 +27,7 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 
 SortIncludes: CaseSensitive
-IncludeBlocks: Preserve
+IncludeBlocks: Merge
 
 FixNamespaceComments: true
 SpacesBeforeTrailingComments: 1
