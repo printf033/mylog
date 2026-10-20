@@ -14,7 +14,6 @@
 
 #include "fileManager.hpp"
 #include "logger.hpp"
-
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
