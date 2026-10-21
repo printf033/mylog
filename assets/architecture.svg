@@ -101,7 +101,7 @@
 
     <rect x="312" y="295" width="128" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
     <text x="320" y="313" class="heading" font-size="10">Timestamp &amp; TID</text>
-    <text x="320" y="328" class="subtext">Second cache + ms/UTC</text>
+    <text x="320" y="328" class="subtext">Second cache + Nanos/UTC</text>
     <text x="320" y="342" class="subtext">POSIX TID prefix reuse</text>
 
     <rect x="448" y="295" width="132" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
@@ -123,23 +123,23 @@
     <rect x="40" y="414" width="255" height="144" rx="6" fill="#0d1117" stroke="#1f6feb" stroke-width="1.2"/>
     <rect x="50" y="422" width="90" height="18" rx="3" fill="#1f6feb" fill-opacity="0.3"/>
     <text x="56" y="435" class="badge-text" fill="#58a6ff">Shared Single File</text>
-    <text x="50" y="456" class="code" font-size="10">outputFunction_file()</text>
+    <text x="50" y="456" class="code" font-size="10">createFileOutputFunction()</text>
     <text x="50" y="473" class="subtext">• Borrow TLS write buffer (64 KiB default)</text>
     <text x="50" y="489" class="subtext">• Atomic Kernel <tspan class="code">O_APPEND</tspan> write(2)</text>
     <text x="50" y="505" class="subtext">• Hot path: <tspan fill="#3fb950" font-weight="600">Zero User Locks, Zero Copy</tspan></text>
     <text x="50" y="522" class="subtext">• Bench: <tspan fill="#79c0ff" font-weight="600">117.2 ns/op (8.5M ops/s)</tspan></text>
-    <text x="50" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;.log</text>
+    <text x="50" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;tid&gt;.log</text>
 
     <!-- Branch B: Per-Thread Dedicated Files -->
     <rect x="305" y="414" width="275" height="144" rx="6" fill="#0d1117" stroke="#8957e5" stroke-width="1.2"/>
     <rect x="315" y="422" width="95" height="18" rx="3" fill="#8957e5" fill-opacity="0.3"/>
     <text x="321" y="435" class="badge-text" fill="#d2a8ff">Per-Thread Isolated</text>
-    <text x="315" y="456" class="code" font-size="10">outputFunction_filePerThread()</text>
+    <text x="315" y="456" class="code" font-size="10">createPerThreadFileOutputFunction()</text>
     <text x="315" y="473" class="subtext">• Dedicated FD &amp; independent TLS buffer</text>
     <text x="315" y="489" class="subtext">• Zero inter-thread contention or stall</text>
     <text x="315" y="505" class="subtext">• Ultimate stable tail latency (p99/p999)</text>
     <text x="315" y="522" class="subtext">• Independent rotation &amp; retention purge</text>
-    <text x="315" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;_&lt;tid&gt;.log</text>
+    <text x="315" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;tid&gt;.log</text>
   </g>
 
 
@@ -187,7 +187,7 @@
     <text x="630" y="490" class="subtext">• Keeps at most <tspan class="code">maxFiles</tspan> newest log files</text>
     <text x="630" y="506" class="subtext">• Baseline scan + <tspan fill="#3fb950" font-weight="600">O(1)</tspan> binary insert &amp; pop</text>
     <text x="630" y="522" class="subtext">• Eliminates full directory traversals &amp; I/O stalls</text>
-    <text x="630" y="538" class="subtext">• Scoped to current process <tspan class="code">PID</tspan> strictly</text>
+    <text x="630" y="538" class="subtext">• Strict suffix &amp; format validation protection</text>
   </g>
 
   <!-- Connective flow between FileManager and Rolling -->

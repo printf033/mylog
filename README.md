@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Architecture-Header--Only-brightgreen.svg" alt="Header Only" />
   <img src="https://img.shields.io/badge/Dependencies-Zero%20(Core)-success.svg" alt="Zero Dependencies" />
   <img src="https://img.shields.io/badge/Platform-Linux-orange.svg" alt="Linux" />
-  <img src="https://img.shields.io/badge/Tests-174%20Passed-brightgreen.svg" alt="Tests 174 Passed" />
+  <img src="https://img.shields.io/badge/Tests-180%20Passed-brightgreen.svg" alt="Tests 180 Passed" />
   <img src="https://img.shields.io/badge/Throughput-8.5M%20ops%2Fs-blueviolet.svg" alt="Throughput" />
   <img src="https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan-informational.svg" alt="Sanitizers" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT" />
@@ -40,13 +40,13 @@ The core library is **100% dependency-free** (requiring only standard C++26 and 
 
 3. **Formatting, In-Place Buffer & Security Pipeline**:
    - **Zero-Copy In-Place Formatting**: When combined with `FileManager`, `std::format` borrows the thread-local file write buffer directly to build log messages in place, completely eliminating intermediate string copies and heap allocations.
-   - **High-Precision Clock & TID Cache**: Thread-local second-precision timestamp cache (eliminating frequent `localtime_r` lock and kernel overheads) and cached POSIX `gettid()` prefix.
-   - **Robust Injection Defense**: 64-bit SWAR branchless control character scanner and escaper (stopping ANSI injection and terminal spoofing), thread-local reentrancy protection, and strict length limit truncation.
+   - **High-Precision Nanosecond Timestamp & TID Cache**: Thread-local second-precision text cache with in-place zero-stack nanosecond formatting (`YYYY-MM-DD HH:MM:SS.nnnnnnnnn`, 7.38M ops/s) eliminating frequent `localtime_r` lock and kernel overheads, paired with cached POSIX `gettid()` prefix.
+   - **Robust Injection Defense & Zero-Exception Safety**: 64-bit SWAR branchless control character scanner and escaper (stopping ANSI injection and terminal spoofing), thread-local reentrancy protection, strict length limit truncation, and pure RAII exception-free transaction guards.
 
 4. **FileManager Dual-Mode Storage Engine**:
-   - **Shared Single File (`outputFunction_file` / `createFileOutputFunction`)**:
+   - **Shared Single File (`createFileOutputFunction`)**:
      Each thread accumulates logs into its private TLS buffer (`threadBufferCapacity`, default 64 KiB). Batches are appended to disk directly via Linux kernel `write(2)` with `O_APPEND`. Atomicity is guaranteed at the kernel file description level — **zero user-space locks and zero secondary memory copies** on the hot path, achieving **8.5M ops/s (117.2 ns/op)**.
-   - **Per-Thread Dedicated Files (`outputFunction_filePerThread` / `createPerThreadFileOutputFunction`)**:
+   - **Per-Thread Dedicated Files (`createPerThreadFileOutputFunction`)**:
      Each thread writes exclusively to its dedicated log file with its private buffer, eliminating all cross-thread write contention and rotation stalls, delivering deterministic tail latency (p99/p999).
 
 5. **Control, Dynamic Configuration & Retention**:
@@ -55,7 +55,7 @@ The core library is **100% dependency-free** (requiring only standard C++26 and 
    - **Sandboxed Lua Hot Reload**:
      Executes inside a bare `lua_State` (standard libraries `os`, `io`, `package` disabled), leverages C++26 static reflection (`template for`) to auto-deserialize configuration fields, supports enum string parsing (`"trace"`, `"none"`, etc.), and applies configurations atomically (All-or-Nothing).
    - **Capacity-Based Rolling & Retention Policy**:
-     Files roll automatically when reaching `fileCapacity`. The atomic generation and writer drain gate (`gen_` + `writers_`) guarantees safe rotation under high-concurrency appends. The $O(1)$ incremental retention queue avoids blocking threads on large directory scans and isolates files by PID.
+     Files roll automatically when reaching `fileCapacity`. The atomic generation and writer drain gate (`gen_` + `writers_`) guarantees safe rotation under high-concurrency appends. The $O(1)$ incremental retention queue avoids blocking threads on large directory scans and strictly verifies target thread suffixes and timestamp formats.
 
 ---
 
@@ -82,22 +82,23 @@ The core library is **100% dependency-free** (requiring only standard C++26 and 
   - Runtime configuration changes (`setConfig` / `reloadConfig`) invalidate caches seamlessly across all threads.
 
 - **High-Throughput File Backend (`FileManager`)**:
-  - **Shared File Mode (`outputFunction_file` / `createFileOutputFunction`)**:
+  - **Shared File Mode (`createFileOutputFunction`)**:
     - Each thread accumulates logs into its private TLS buffer (`threadBufferCapacity`, default 64 KiB).
     - Batches are written directly to disk via `write(2)` with `O_APPEND`.
     - Atomicity of file append is guaranteed at the OS kernel file description level — **zero user-space locks and zero secondary memory copies** on the hot path.
     - Safe file rotation without race conditions or file descriptor recycling hazards (`gen_` + `writers_`).
-  - **Per-Thread Dedicated File Mode (`outputFunction_filePerThread` / `createPerThreadFileOutputFunction`)**:
-    - Each thread writes exclusively to its own dedicated file (`<ts>_<basename>_<pid>_<tid>.log`).
+  - **Per-Thread Dedicated File Mode (`createPerThreadFileOutputFunction`)**:
+    - Each thread writes exclusively to its own dedicated file (`<YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log`).
     - Eliminates all cross-thread write contention, delivering the most deterministic tail latency (p99/p999).
 
 - **Automated Log Rotation & Incremental Retention**:
   - Automatic rolling when log size reaches `fileCapacity` (default 100 MiB).
   - FIFO retention keeps at most `maxFiles` newest files.
   - Baseline directory scanning with $O(1)$ incremental maintenance during rolling avoids blocking threads on directories with large file counts.
-  - Scoped to the current process PID to prevent accidental deletion of logs from other processes.
+  - Strict suffix and timestamp format validation prevents accidental deletion of unrelated or external files.
 
 - **Security & Injection Hardening**:
+  - **100% Zero-Exception Architecture (`-fno-exceptions` Compatible)**: Completely eliminates `try...catch` and runtime exception overhead. Buffer rollbacks are managed via pure RAII transaction guards (`OutputBufferGuard`), and POSIX `localtime_r` removes dependencies on system tzdb. Compiles cleanly in strict `-fno-exceptions` environments (game engines, trading, embedded).
   - **Log Injection / ANSI Spoofing Prevention**: `escapeControlChars` (enabled by default) escapes control characters (`\n`, `\r`, `\033`/ESC, `\x7f`, etc.) to stop malicious log forgery and terminal hijacking.
   - **Reentrancy Protection**: Built-in reentrancy guard prevents recursive logging deadlocks or stack overflows.
   - **Single Log Length Limit**: `maxLogLength` (default 1 MiB, range `[64 B, 64 MiB]`) prevents runaway memory usage.
@@ -131,10 +132,10 @@ Measured on Linux (x86_64, 4 threads, Release `-O2`, 1,000,000 logs/thread):
 Standard log lines follow this structured layout:
 
 ```text
-2026-10-17 23:15:30.123 INFO [140283]main>>Application initialized successfully (main.cpp:42)
+2026-10-17 23:15:30.123456789 INFO [140283]main>>Application initialized successfully (main.cpp:42)
 ```
 
-- **Timestamp**: `YYYY-MM-DD HH:MM:SS.mmm` (millisecond precision, localized or UTC).
+- **Timestamp**: `YYYY-MM-DD HH:MM:SS.nnnnnnnnn` (nanosecond precision, localized or UTC).
 - **Level**: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL` (supports ANSI color highlights).
 - **Thread ID**: `[<tid>]` from POSIX `gettid()`.
 - **Function**: Caller function name (`__func__`).
@@ -178,8 +179,8 @@ Redirect logging to disk using the zero-copy shared file backend:
 int main()
 {
     // Configure zero-copy file backend as the output sink
-    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::outputFunction_file());
-    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::flushFunction_file());
+    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::createFileOutputFunction());
+    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::createFileFlushFunction());
 
     // Write concurrently across multiple threads without explicit synchronization
     auto worker = [](int id) {
@@ -200,7 +201,7 @@ int main()
 ```
 
 Log files are created in the working directory following the format:
-`<YYYYMMDD_HHMMSS_NNNNNNNNN>_<basename>_<pid>.log`.
+`<YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log`.
 
 ### 3. Per-Thread Isolated File Logging
 
@@ -213,11 +214,11 @@ For maximum tail-latency predictability, give each thread its own file:
 int main()
 {
     // Switch sink to per-thread dedicated files
-    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::outputFunction_filePerThread());
-    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::flushFunction_filePerThread());
+    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::createPerThreadFileOutputFunction());
+    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::createPerThreadFileFlushFunction());
 
     mylog::info("Main thread log");
-    // Thread files are named: <YYYYMMDD_HHMMSS_NNNNNNNNN>_<basename>_<pid>_<tid>.log
+    // Thread files are named: <YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log
 }
 ```
 
@@ -230,15 +231,13 @@ mylog::setSuppressLevel("WARN"); // or mylog::setSuppressLevel(mylog::LEVEL::WAR
 // Adjust Logger config
 mylog::Logger::Config logCfg = mylog::Logger::getInstance().getConfig();
 logCfg.escapeControlChars = true;         // Escape control chars (prevent ANSI injection)
-logCfg.timestampWithMs = true;            // Timestamp with millisecond precision
-logCfg.timestampUtc = false;              // Local time
+logCfg.timestampUtc = false;              // false for local time, true for UTC (nanoseconds always enabled)
 logCfg.maxLogLength = 512ULL << 10;       // Max single log length capped at 512 KiB
 logCfg.fatalAction = mylog::FATAL_ACTION::EXIT; // Exit upon FATAL instead of default none
 mylog::Logger::getInstance().setConfig(logCfg);
 
 // Adjust FileManager config
 mylog::FileManager::Config fileCfg = mylog::FileManager::getInstance().getConfig();
-fileCfg.basename = "server";               // Log filename prefix
 fileCfg.threadBufferCapacity = 64ULL << 10; // Thread write buffer 64 KiB
 fileCfg.fileCapacity = 50ULL << 20;        // Rotate after 50 MiB
 fileCfg.maxFiles = 10;                     // Retain up to 10 historical log files
@@ -296,14 +295,12 @@ logger = {
     suppressLevel = "trace",    -- Minimum log level (parsed via C++26 reflection): "trace" | "debug" | "info" | "warn" | "error" | "fatal"
     stdoutVivid = false,        -- ANSI colors for console (true for terminal, false for file)
     escapeControlChars = true,  -- Escape control characters (prevents log injection)
-    timestampWithMs = true,     -- Include millisecond precision
-    timestampUtc = false,       -- false for local time, true for UTC
+    timestampUtc = false,       -- false for local time, true for UTC (nanoseconds always enabled)
     maxLogLength = 1 << 20,     -- Maximum log length in bytes (1 MiB)
     fatalAction = "none"        -- Action on FATAL: "none" (default, no-op) | "exit" | "abort"
 }
 
 fileManager = {
-    basename = "app",           -- Log filename prefix (only [A-Za-z0-9._-] allowed)
     threadBufferCapacity = 64 << 10,   -- Thread buffer in bytes (64 KiB, 0 = disabled)
     fileBufferCapacity = 128 << 10,    -- Shared buffer in bytes (128 KiB)
     fileCapacity = 100 << 20,          -- File capacity threshold for rotation (100 MiB)
@@ -325,8 +322,7 @@ fileManager = {
 | `lv2str` | `const std::array<const char*, 6>*` | `&LV2STR` | Level label mappings (`&LV2STR` plain, `&LV2STR_VIVID` colored) |
 | `suppressLevel` | `LEVEL` | `LEVEL::TRACE` | Minimum active level; lower levels are dropped immediately |
 | `escapeControlChars` | `bool` | `true` | Escape control characters (`\n`, `\r`, `\033`, etc.) |
-| `timestampWithMs` | `bool` | `true` | Include millisecond precision in timestamps |
-| `timestampUtc` | `bool` | `false` | Use UTC time instead of local time |
+| `timestampUtc` | `bool` | `false` | Use UTC time instead of local time (nanosecond precision always active) |
 | `maxLogLength` | `size_t` | `1ULL << 20` (1 MiB) | Maximum bytes per single log message, range `[64 B, 64 MiB]` |
 | `fatalAction` | `FATAL_ACTION` | `NONE` | System action on FATAL: `NONE` (default, no-op), `EXIT`, or `ABORT` |
 | `outputFunction` | `OutputFunction` | `stdoutOutput` | Output sink callback `void (*)(void* ctx, std::string_view msg)` |
@@ -336,7 +332,6 @@ fileManager = {
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `basename` | `std::string` | `"default"` | Prefix for log filenames; must match `[A-Za-z0-9._-]` |
 | `threadBufferCapacity`| `size_t` | `64UL << 10` (64 KiB) | Per-thread write buffer size (0 falls back to shared buffer) |
 | `fileBufferCapacity` | `size_t` | `128UL << 10` (128 KiB)| Shared write buffer size, range `[1 KiB, 256 MiB]` |
 | `fileCapacity` | `size_t` | `100UL << 20` (100 MiB)| Maximum size before rotation, range `[1 KiB, 64 GiB]` |
@@ -350,23 +345,39 @@ fileManager = {
 ### Requirements
 - C++26 compatible compiler (GCC 16+ with `-freflection`, Clang 23+)
 - POSIX-compliant environment (Linux)
-- CMake 3.25+
+- CMake 3.20+
 - *Optional*: `luajit` (only needed for `configer_lua.hpp` or Lua examples)
 
 ### CMake Integration
 
-As a header-only library, link the interface target directly:
+As a modern header-only library, `mylog` can be linked directly using target-centric Modern CMake (`mylog::mylog` / `mylog::mylog_lua`):
 
+#### 1. Via `add_subdirectory`:
 ```cmake
-# Add mylog subdirectory
-add_subdirectory(path/to/mylog/src)
+# Add mylog root directory
+add_subdirectory(path/to/mylog)
 
-# Core library (Zero third-party dependencies):
-target_link_libraries(your_project PRIVATE mylog)
+# Core library (Zero third-party dependencies, auto C++26 & includes):
+target_link_libraries(your_project PRIVATE mylog::mylog)
 
-# Optional Lua config reload (links LuaJIT):
-target_link_libraries(your_project PRIVATE mylog_lua)
+# Optional Lua config hot-reload (links LuaJIT):
+target_link_libraries(your_project PRIVATE mylog::mylog_lua)
 ```
+
+#### 2. Via `FetchContent`:
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    mylog
+    GIT_REPOSITORY https://github.com/your-username/mylog.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(mylog)
+
+target_link_libraries(your_project PRIVATE mylog::mylog)
+```
+
+> **Subproject Isolation Guarantee**: When included via `add_subdirectory` or `FetchContent`, example, test, and benchmark targets automatically default to `OFF`, and parent project output directories/build types are left untouched.
 
 ### Building Tests & Examples
 
@@ -375,28 +386,29 @@ target_link_libraries(your_project PRIVATE mylog_lua)
 git clone https://github.com/your-username/mylog.git
 cd mylog
 
-# Default build (ASan and UBSan enabled in Debug mode)
+# Default standalone build (tests, examples, bench enabled)
 cmake -B build
 cmake --build build -j
 
-# Run the automated test suite (174 checks)
+# Run the automated test suite (180 checks, 0 failures)
 ctest --test-dir build --output-on-failure
 
 # Build and run the Release benchmark
 cmake -B build_release -DCMAKE_BUILD_TYPE=Release
 cmake --build build_release --target bench
-./build_release/bin/bench 1000000 4
+./build_release/bin/bench
 ```
 
 ### CMake Options
 
-| Option | Default | Description |
-| :--- | :---: | :--- |
-| `MYLOG_BUILD_EXAMPLES` | `ON` | Build example executables in `examples/` |
-| `MYLOG_BUILD_TESTS` | `ON` | Build automated test suite in `tests/` |
-| `MYLOG_BUILD_BENCH` | `ON` | Build benchmark executable in `bench/` |
-| `MYLOG_SANITIZE` | `ON` | Enable ASan and UBSan in Debug builds |
-| `MYLOG_BUILD_TSAN_TEST` | `OFF` | Build dedicated ThreadSanitizer test target |
+| Option | Standalone Default | Subproject Default | Description |
+| :--- | :---: | :---: | :--- |
+| `MYLOG_BUILD_EXAMPLES` | `ON` | `OFF` | Build example executables in `examples/` |
+| `MYLOG_BUILD_TESTS` | `ON` | `OFF` | Build automated test suite in `tests/` |
+| `MYLOG_BUILD_BENCH` | `ON` | `OFF` | Build benchmark executable in `bench/` |
+| `MYLOG_SANITIZE` | `ON` (Debug) | `OFF` | Enable ASan and UBSan sanitizers |
+| `MYLOG_ENABLE_LUA` | `ON` | `ON` | Enable sandboxed Lua config support (requires LuaJIT) |
+| `MYLOG_BUILD_TSAN_TEST` | `OFF` | `OFF` | Build dedicated ThreadSanitizer test target |
 
 ---
 
@@ -426,6 +438,7 @@ The project enforces strict code style and static verification across multiple t
 ```text
 .
 ├── CMakeLists.txt              # Root CMake build file (format / format-check targets)
+├── LICENSE                     # MIT License
 ├── .editorconfig               # Core encoding and indentation rules
 ├── .clang-format               # C++ formatting rules (Allman style)
 ├── .clang-tidy                 # C++ naming conventions and static analysis rules
@@ -453,13 +466,19 @@ The project enforces strict code style and static verification across multiple t
 ├── bench/                      # Performance micro-benchmarks
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # Multi-threaded throughput and latency benchmark
-└── tests/                      # Unit and integration test suite
-    ├── CMakeLists.txt
-    └── test.cpp                # 174 automated test checks covering safety, rolling, reflection
+├── tests/                      # Unit and integration test suite (180 checks)
+│   ├── CMakeLists.txt
+│   ├── main.cpp                # Test runner and summary reporter
+│   ├── test_common.hpp         # Test assertion macros and test registry
+│   ├── test_common.cpp         # Custom assertion framework implementation
+│   ├── test_logger.cpp         # Core logger, formatting, safety, zero-exception tests
+│   ├── test_file_manager.cpp   # FileManager, TLS buffer, rotation, retention tests
+│   ├── test_config_lua.cpp     # Sandboxed Lua configuration reload tests
+│   └── test_reflection.cpp     # C++26 static reflection and masking tests
 ```
 
 ---
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

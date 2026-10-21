@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/架构-Header--Only-brightgreen.svg" alt="Header Only" />
   <img src="https://img.shields.io/badge/核心依赖-零第三方库-success.svg" alt="Zero Dependencies" />
   <img src="https://img.shields.io/badge/平台-Linux-orange.svg" alt="Linux" />
-  <img src="https://img.shields.io/badge/自动化测试-174%20项通过-brightgreen.svg" alt="Tests 174 Passed" />
+  <img src="https://img.shields.io/badge/自动化测试-180%20项通过-brightgreen.svg" alt="Tests 180 Passed" />
   <img src="https://img.shields.io/badge/实测吞吐-8.5M%20ops%2Fs-blueviolet.svg" alt="Throughput" />
   <img src="https://img.shields.io/badge/内存检测-ASan%20%7C%20UBSan-informational.svg" alt="Sanitizers" />
   <img src="https://img.shields.io/badge/开源协议-MIT-green.svg" alt="License MIT" />
@@ -40,13 +40,13 @@
 
 3. **格式化、原位零拷贝缓冲与安全加固流水线**：
    - **零拷贝原位格式化（Zero-Copy Direct In-Place Formatting）**：接入 `FileManager` 时，`std::format` 直接借出线程局部落盘缓冲原位构建日志文本，彻底消除中间临时字符串分配与二次 `memcpy`。
-   - **纳秒级时钟与 TID 缓存**：采用 thread_local 秒级时间戳缓存（消除频繁调用 `localtime_r` 的内核与锁开销）与 POSIX `gettid()` 预格式化前缀复用。
-   - **安全防御与健壮性保障**：64 位 SWAR 无分支控制字符快速扫描与转义（阻断 ANSI 注入与终端伪造）、线程局部防重入检测（拦截递归死锁）、单条日志长度上限强制截断。
+   - **纳秒级高精度时钟与 TID 缓存**：采用 thread_local 秒级文本缓存与原位无栈纳秒格式化（`YYYY-MM-DD HH:MM:SS.nnnnnnnnn`，吞吐 7.38M ops/s），消除频繁调用 `localtime_r` 的内核与锁开销，搭配 POSIX `gettid()` 预格式化前缀复用。
+   - **安全防御、健壮性与纯零异常架构**：64 位 SWAR 无分支控制字符快速扫描与转义（阻断 ANSI 注入与终端伪造）、线程局部防重入检测（拦截递归死锁）、单条日志长度上限强制截断，基于 RAII 事务卫述（`OutputBufferGuard`）实现全库纯零异常机制。
 
 4. **FileManager 双模式高性能落盘引擎**：
-   - **共享单文件模式（`outputFunction_file` / `createFileOutputFunction`）**：
+   - **共享单文件模式（`createFileOutputFunction`）**：
      各业务线程独立持有线程局部写缓冲（`threadBufferCapacity`，默认 64 KiB），攒满后通过 Linux 内核 `write(2)` 追加至带有 `O_APPEND` 标志的文件描述符。追加原子性由内核维护，**在用户态彻底消除互斥锁争用与内存拷贝**，实测吞吐高达 **8.5M ops/s (117.2 ns/op)**。
-   - **每线程独立文件模式（`outputFunction_filePerThread` / `createPerThreadFileOutputFunction`）**：
+   - **每线程独立文件模式（`createPerThreadFileOutputFunction`）**：
      每个工作线程拥有专属的独立日志文件与私有写缓冲，完全杜绝跨线程竞争与换文件排空等待，提供极致平稳的长尾延迟表现（p99/p999）。
 
 5. **控制、动态配置与文件保留策略**：
@@ -55,7 +55,7 @@
    - **沙箱化 Lua 配置热重载**：
      在裸 `lua_State` 中执行（禁用 `os`、`io`、`package` 等系统库），通过 C++26 静态反射（`template for`）全自动解析配置字段，支持枚举字符串映射（小写 `"trace"`、`"none"` 等），事务级全量校验（All-or-Nothing）。
    - **日志容量滚动与增量清理（Retention Policy）**：
-     单文件达到 `fileCapacity` 时自动滚动，借助代次与并发写者计数闸门（`gen_` + `writers_`）确保并发无锁写入下文件安全切换；保留策略采用 $O(1)$ 增量队列，杜绝大目录下全量扫描磁盘阻塞，严格按当前进程 PID 隔离。
+     单文件达到 `fileCapacity` 时自动滚动，借助代次与并发写者计数闸门（`gen_` + `writers_`）确保并发无锁写入下文件安全切换；保留策略采用 $O(1)$ 增量队列，杜绝大目录下全量扫描磁盘阻塞，严格按目标特征后缀与时间戳格式校验隔离。
 
 ---
 
@@ -82,22 +82,23 @@
   - 运行期修改配置（`setConfig` / `reloadConfig`）原子递增代次，跨线程平滑失效并更新本地缓存。
 
 - **超高吞吐落盘引擎（FileManager）**：
-  - **共享单文件模式（`outputFunction_file` / `createFileOutputFunction`）**：
+  - **共享单文件模式（`createFileOutputFunction`）**：
     - 各业务线程独立持有线程局部写缓冲（`threadBufferCapacity`，默认 64 KiB），写入仅为内存追加，热路径零系统调用、零锁。
     - 缓冲写满或超时后，整块通过 `write(2)` 追加至同一个带有 `O_APPEND` 标志的文件描述符（fd）。
     - 追加原子性完全由内核文件表项（file description）保证，**在用户态彻底消除锁竞争与二次拷贝**。
     - 滚动换文件时通过无锁代次与写者引用计数（`gen_` + `writers_`）安全切换，杜绝 fd 复用数据错乱。
-  - **每线程独立文件模式（`outputFunction_filePerThread` / `createPerThreadFileOutputFunction`）**：
-    - 每个线程维护自身专属的日志文件（`<ts>_<basename>_<pid>_<tid>.log`），线程间零交互、零共享。
+  - **每线程独立文件模式（`createPerThreadFileOutputFunction`）**：
+    - 每个线程维护自身专属的日志文件（`<YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log`），线程间零交互、零共享。
     - 彻底杜绝跨线程竞争，保障极端高负载场景下最优且最平稳的长尾延迟（p99/p999）。
 
 - **智能日志滚动与增量清理（Retention Policy）**：
   - 单文件达到容量上限（`fileCapacity`，默认 100 MiB）时自动触发滚动，创建新日志文件。
   - FIFO 保留机制：仅保留最新的 `maxFiles` 个历史日志文件。
   - 增量维护优化：滚动时不遍历全目录，仅首次初始化或变更时扫描基线，后续滚动实现 $O(1)$ 插入与裁剪，防止在大目录（如共享目录）中引起磁盘 I/O 阻塞。
-  - 文件名绑定进程 PID，绝不误删其他进程或同目录下的无关文件。
+  - 文件名严格匹配特征后缀（`_<tid>.log`），绝不误删其他进程或同目录下的无关文件。
 
 - **全方位安全性加固**：
+  - **100% 零异常架构（完美兼容 `-fno-exceptions`）**：彻底消除全库 `try...catch` 语句与运行时异常开销。写缓冲回滚机制完全依托 RAII 事务守卫（`OutputBufferGuard`）实现，时间格式化基于 POSIX `localtime_r` 摆脱对系统 tzdb 抛异常的依赖。可直接在金融高频交易、游戏引擎与嵌入式等强制 `-fno-exceptions` 的极端严苛环境中开箱即用。
   - **日志注入与 ANSI 转义防护**：`escapeControlChars`（默认开启）自动转义控制字符（`\n`, `\r`, `\033`/ESC, `\x7f` 等），阻断日志伪造与终端劫持。
   - **重入防护（Reentrancy Guard）**：内置线程局部防重入标志，避免回调中重复打日志导致死锁或栈溢出。
   - **单条日志长度截断**：通过 `maxLogLength`（默认 1 MiB，范围 `[64 B, 64 MiB]`）防止超长畸形日志耗尽内存。
@@ -131,10 +132,10 @@
 日志默认按以下格式紧凑输出：
 
 ```text
-2026-10-17 23:15:30.123 INFO [140283]main>>Application initialized successfully (main.cpp:42)
+2026-10-17 23:15:30.123456789 INFO [140283]main>>Application initialized successfully (main.cpp:42)
 ```
 
-- **时间戳**：`YYYY-MM-DD HH:MM:SS.mmm`（支持毫秒精度、本地时间或 UTC）。
+- **时间戳**：`YYYY-MM-DD HH:MM:SS.nnnnnnnnn`（固定纳秒高精度，支持本地时间或 UTC）。
 - **级别**：`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`（终端可开启彩色高亮）。
 - **线程 ID**：`[<tid>]`，取自 POSIX `gettid()`。
 - **函数名**：调用方函数名（`__func__`）。
@@ -178,8 +179,8 @@ int main()
 int main()
 {
     // 将后端重定向至文件输出（零拷贝直接借出落盘缓冲）
-    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::outputFunction_file());
-    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::flushFunction_file());
+    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::createFileOutputFunction());
+    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::createFileFlushFunction());
 
     // 多线程并发记录日志，业务线程热路径零互斥锁竞争
     auto worker = [](int id) {
@@ -199,7 +200,7 @@ int main()
 }
 ```
 
-生成的日志文件命名格式为：`<时间戳>_<basename>_<pid>.log`。
+生成的日志文件命名格式为：`<YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log`。
 
 ### 3. 每线程独立文件模式
 
@@ -212,11 +213,11 @@ int main()
 int main()
 {
     // 切换至每线程独占文件后端
-    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::outputFunction_filePerThread());
-    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::flushFunction_filePerThread());
+    mylog::Logger::getInstance().setOutputFunction(mylog::FileManager::createPerThreadFileOutputFunction());
+    mylog::Logger::getInstance().setFlushFunction(mylog::FileManager::createPerThreadFileFlushFunction());
 
     mylog::info("主线程日志");
-    // 生成文件格式形如：<时间戳>_<basename>_<pid>_<tid>.log
+    // 生成文件格式形如：<YYYYMMDD_HHMMSS_nnnnnnnnn>_<tid>.log
 }
 ```
 
@@ -229,15 +230,13 @@ mylog::setSuppressLevel("WARN"); // 亦可传入枚举：mylog::setSuppressLevel
 // 调整 Logger 配置
 mylog::Logger::Config logCfg = mylog::Logger::getInstance().getConfig();
 logCfg.escapeControlChars = true;         // 开启控制字符转义（防护 ANSI 注入）
-logCfg.timestampWithMs = true;            // 时间戳包含毫秒
-logCfg.timestampUtc = false;              // 本地时间
+logCfg.timestampUtc = false;              // false 为本地时间，true 为 UTC（纳秒精度固定常开）
 logCfg.maxLogLength = 512ULL << 10;       // 单条日志截断上限 512 KiB
 logCfg.fatalAction = mylog::FATAL_ACTION::EXIT; // FATAL 时调用 exit 退出而非默认 none
 mylog::Logger::getInstance().setConfig(logCfg);
 
 // 调整 FileManager 配置
 mylog::FileManager::Config fileCfg = mylog::FileManager::getInstance().getConfig();
-fileCfg.basename = "server";               // 日志文件名前缀
 fileCfg.threadBufferCapacity = 64ULL << 10; // 线程局部缓冲 64 KiB
 fileCfg.fileCapacity = 50ULL << 20;        // 单文件 50 MiB 后自动滚动
 fileCfg.maxFiles = 10;                     // 最多保留 10 个历史日志
@@ -295,14 +294,12 @@ logger = {
     suppressLevel = "trace",    -- 抑制级别（基于 C++26 静态反射解析枚举字符串，推荐小写）："trace" | "debug" | "info" | "warn" | "error" | "fatal"
     stdoutVivid = false,        -- 级别标签是否带 ANSI 颜色（终端建议 true，写文件建议 false）
     escapeControlChars = true,  -- 转义控制字符（阻断日志伪造）
-    timestampWithMs = true,     -- 是否带毫秒
-    timestampUtc = false,       -- false 为本地时间，true 为 UTC
+    timestampUtc = false,       -- false 为本地时间，true 为 UTC（纳秒精度固定常开）
     maxLogLength = 1 << 20,     -- 单条日志最大字节数（1 MiB）
     fatalAction = "none"        -- 触发 FATAL 后的动作："none"（默认，啥也不做） | "exit" | "abort"
 }
 
 fileManager = {
-    basename = "app",           -- 文件名前缀（仅允许字母、数字、点、减号、下划线）
     threadBufferCapacity = 64 << 10,   -- 线程局部缓冲字节数（64 KiB，0 为关闭）
     fileBufferCapacity = 128 << 10,    -- 共享写缓冲字节数（128 KiB）
     fileCapacity = 100 << 20,          -- 单文件滚动容量（100 MiB）
@@ -324,8 +321,7 @@ fileManager = {
 | `lv2str` | `const std::array<const char*, 6>*` | `&LV2STR` | 级别字符映射表（`&LV2STR` 无色，`&LV2STR_VIVID` 带 ANSI 色彩） |
 | `suppressLevel` | `LEVEL` | `LEVEL::TRACE` | 日志最低生效级别，低于此级别立即丢弃 |
 | `escapeControlChars` | `bool` | `true` | 是否对控制字符（`\n`, `\r`, `\033` 等）转义 |
-| `timestampWithMs` | `bool` | `true` | 时间戳是否输出毫秒精度 |
-| `timestampUtc` | `bool` | `false` | 是否使用 UTC 时间（默认本地时间） |
+| `timestampUtc` | `bool` | `false` | 是否使用 UTC 时间（默认本地时间，纳秒精度常开） |
 | `maxLogLength` | `size_t` | `1ULL << 20` (1 MiB) | 单条日志最大字节长度，取值区间 `[64 B, 64 MiB]` |
 | `fatalAction` | `FATAL_ACTION` | `NONE` | 触发 FATAL 后的系统动作：`NONE`（默认，啥也不做）, `EXIT` 或 `ABORT` |
 | `outputFunction` | `OutputFunction` | `stdoutOutput` | 日志输出回调函数 `void (*)(void* ctx, std::string_view msg)` |
@@ -335,7 +331,6 @@ fileManager = {
 
 | 配置字段 | 类型 | 默认值 | 作用说明 |
 | :--- | :--- | :--- | :--- |
-| `basename` | `std::string` | `"default"` | 日志文件名前缀，必须满足 `[A-Za-z0-9._-]` 且不超过 128 字符 |
 | `threadBufferCapacity`| `size_t` | `64UL << 10` (64 KiB) | 线程局部写缓冲区大小（设为 0 退化为单锁共享缓冲） |
 | `fileBufferCapacity` | `size_t` | `128UL << 10` (128 KiB)| 共享缓冲区大小，取值区间 `[1 KiB, 256 MiB]` |
 | `fileCapacity` | `size_t` | `100UL << 20` (100 MiB)| 单个日志文件最大字节容量，超过即滚动，取值 `[1 KiB, 64 GiB]` |
@@ -349,23 +344,39 @@ fileManager = {
 ### 环境依赖
 - 支持 C++26 的编译器（GCC 16+ 配合 `-freflection`，Clang 23+）
 - POSIX 兼容系统（Linux）
-- CMake 3.25 及以上
+- CMake 3.20 及以上
 - *可选*：`luajit`（仅在使用 `configer_lua.hpp` 或构建带 Lua 的样例时需要）
 
 ### CMake 引入方式
 
-由于 `mylog` 核心为纯头文件，可直接添加头文件目录或通过 CMake 目标引入：
+作为现代纯头文件库，`mylog` 严格基于现代 CMake 目标导向理念设计，提供规范的带命名空间接口目标（`mylog::mylog` / `mylog::mylog_lua`）：
 
+#### 1. 通过 `add_subdirectory` 接入：
 ```cmake
-# 引入 mylog 子目录
-add_subdirectory(path/to/mylog/src)
+# 引入 mylog 根目录
+add_subdirectory(path/to/mylog)
 
-# 核心接口（零第三方依赖）：
-target_link_libraries(your_project PRIVATE mylog)
+# 核心接口（零第三方依赖，自动传播 C++26 与头文件路径）：
+target_link_libraries(your_project PRIVATE mylog::mylog)
 
-# 若需使用 Lua 配置热加载（链接 LuaJIT）：
-target_link_libraries(your_project PRIVATE mylog_lua)
+# 可选的 Lua 配置热加载模块（自动链接 LuaJIT）：
+target_link_libraries(your_project PRIVATE mylog::mylog_lua)
 ```
+
+#### 2. 通过 `FetchContent` 接入：
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    mylog
+    GIT_REPOSITORY https://github.com/your-username/mylog.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(mylog)
+
+target_link_libraries(your_project PRIVATE mylog::mylog)
+```
+
+> **子项目引入隔离保障**：当通过 `add_subdirectory` 或 `FetchContent` 作为子项目引入时，`mylog` 的示例、测试与基准构建目标会自动默认为 `OFF`，且不会修改父工程的输出目录与构建类型。
 
 ### 构建测试与样例
 
@@ -374,28 +385,29 @@ target_link_libraries(your_project PRIVATE mylog_lua)
 git clone https://github.com/your-username/mylog.git
 cd mylog
 
-# 默认构建（Debug 模式自动开启 ASan 与 UBSan 插桩）
+# 默认独立构建（自动开启测试、示例与基准测试）
 cmake -B build
 cmake --build build -j
 
-# 运行自动化测试套件（包含 174 个全面检查点）
+# 运行自动化测试套件（180 项测试检查，0 失败）
 ctest --test-dir build --output-on-failure
 
 # 编译并运行 Release 性能基准测试
 cmake -B build_release -DCMAKE_BUILD_TYPE=Release
 cmake --build build_release --target bench
-./build_release/bin/bench 1000000 4
+./build_release/bin/bench
 ```
 
 ### CMake 构建开关
 
-| 开关名称 | 默认值 | 作用说明 |
-| :--- | :---: | :--- |
-| `MYLOG_BUILD_EXAMPLES` | `ON` | 构建 `examples/` 下的示例程序 |
-| `MYLOG_BUILD_TESTS` | `ON` | 构建 `tests/` 下的自动化测试套件 |
-| `MYLOG_BUILD_BENCH` | `ON` | 构建 `bench/` 下的性能微基准测试程序 |
-| `MYLOG_SANITIZE` | `ON` | 在 Debug 模式下启用 ASan / UBSan 内存检测 |
-| `MYLOG_BUILD_TSAN_TEST` | `OFF` | 构建独立的 ThreadSanitizer 线程竞态检测目标 |
+| 开关名称 | 独立构建默认值 | 作为子项目默认值 | 作用说明 |
+| :--- | :---: | :---: | :--- |
+| `MYLOG_BUILD_EXAMPLES` | `ON` | `OFF` | 构建 `examples/` 下的示例程序 |
+| `MYLOG_BUILD_TESTS` | `ON` | `OFF` | 构建 `tests/` 下的自动化测试套件 |
+| `MYLOG_BUILD_BENCH` | `ON` | `OFF` | 构建 `bench/` 下的性能微基准测试程序 |
+| `MYLOG_SANITIZE` | `ON` (Debug) | `OFF` | 启用 ASan 与 UBSan 内存及未定义行为检测 |
+| `MYLOG_ENABLE_LUA` | `ON` | `ON` | 启用沙箱化 Lua 配置热重载支持（需 LuaJIT） |
+| `MYLOG_BUILD_TSAN_TEST` | `OFF` | `OFF` | 构建独立的 ThreadSanitizer 线程竞态检测目标 |
 
 ---
 
@@ -425,6 +437,7 @@ cmake --build build_release --target bench
 ```text
 .
 ├── CMakeLists.txt              # 根 CMake 构建文件（包含 format / format-check 目标）
+├── LICENSE                     # MIT 开源许可证
 ├── .editorconfig               # 基础编码与缩进规范
 ├── .clang-format               # C++ 代码排版与格式化规范（Allman 风格）
 ├── .clang-tidy                 # C++ 命名约定与静态检查规则
@@ -452,13 +465,19 @@ cmake --build build_release --target bench
 ├── bench/                      # 性能基准测试
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # 多线程吞吐与延迟基准测试程序
-└── tests/                      # 单元与集成测试套件
-    ├── CMakeLists.txt
-    └── test.cpp                # 包含 174 项覆盖并发、注入、滚动、反射、安全性的测试
+├── tests/                      # 单元与集成测试套件（180 项全面检查）
+│   ├── CMakeLists.txt
+│   ├── main.cpp                # 测试运行入口与汇总报告器
+│   ├── test_common.hpp         # 测试断言宏与测试用例注册表
+│   ├── test_common.cpp         # 独立轻量级断言框架实现
+│   ├── test_logger.cpp         # 日志核心、格式化、安全与零异常测试
+│   ├── test_file_manager.cpp   # FileManager、TLS 缓冲、文件滚动与保留清理测试
+│   ├── test_config_lua.cpp     # 沙箱化 Lua 配置热重载测试
+│   └── test_reflection.cpp     # C++26 静态反射与敏感字段脱敏测试
 ```
 
 ---
 
 ## 开源协议
 
-本项目采用 MIT 协议开源。
+本项目采用 MIT 协议开源，详情请参阅 [LICENSE](LICENSE) 文件。

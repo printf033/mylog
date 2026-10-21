@@ -1,5 +1,7 @@
 #pragma once
 
+#include "configHolder.hpp"
+#include "logger.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -29,14 +31,10 @@ namespace mylog
         inline constexpr size_t kMinFileCapacity = 1ULL << 10;
         inline constexpr size_t kMaxFileCapacity = 64ULL << 30;
         inline constexpr size_t kMaxIntervalFlushMs = 24ULL * 60 * 60 * 1000;
-        inline constexpr size_t kMaxBasenameLength = 1ULL << 7;
         inline constexpr size_t kMaxMaxFiles = 1ULL << 10;
     } // namespace detail
 
 } // namespace mylog
-
-#include "configHolder.hpp"
-#include "logger.hpp"
 
 namespace mylog
 {
@@ -49,14 +47,36 @@ namespace mylog
          * 格式为：YYYYMMDD_HHMMSS_nnnnnnnnn（例如：20261018_203000_123456789），
          * 用于确保日志滚动生成的新文件名在微秒/纳秒并发下唯一且按字典序自增。
          *
+         * 采用 POSIX 标准 localtime_r 本地时区与 putDigits 快速除法填充算法：
+         * 与行内时间戳（appendTimestamp）保持同一基准，避免跨时区部署时文件名与日志正文相差数小时。
+         * 天然 noexcept，零异常、无需依赖系统 tzdb 数据库，开销极低且完全兼容 -fno-exceptions。
+         *
          * @return std::string 格式化后的时间戳字符串
          */
         inline std::string getTimestampString()
         {
-            const auto now = std::chrono::system_clock::now();
-            const auto secs = std::chrono::floor<std::chrono::seconds>(now);
-            const auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now - secs);
-            return std::format("{:%Y%m%d_%H%M%S}_{:09}", secs, nanos.count());
+            using namespace std::chrono;
+            const auto now = system_clock::now();
+            const auto secs = floor<seconds>(now);
+            const auto nanos = duration_cast<nanoseconds>(now - secs).count();
+
+            const std::time_t s = system_clock::to_time_t(secs);
+            std::tm tm{};
+            localtime_r(&s, &tm);
+
+            std::string res;
+            res.resize(25);
+            char *p = res.data();
+            detail::putDigits(p, tm.tm_year + 1900, 4);
+            detail::putDigits(p + 4, tm.tm_mon + 1, 2);
+            detail::putDigits(p + 6, tm.tm_mday, 2);
+            p[8] = '_';
+            detail::putDigits(p + 9, tm.tm_hour, 2);
+            detail::putDigits(p + 11, tm.tm_min, 2);
+            detail::putDigits(p + 13, tm.tm_sec, 2);
+            p[15] = '_';
+            detail::putDigits(p + 16, detail::clampValue<int64_t>(nanos, 0, 999999999), 9);
+            return res;
         }
 
         /**
@@ -147,12 +167,6 @@ namespace mylog
             return (::fstat(fd, &st) == 0) ? static_cast<size_t>(st.st_size) : 0;
         }
 
-        /// @brief 兼容性别名
-        inline size_t fileSizeOf(int fd) noexcept
-        {
-            return getFileSize(fd);
-        }
-
         /**
          * @brief 检查指定路径是否为常规文件（Regular File）
          *
@@ -167,77 +181,71 @@ namespace mylog
         }
 
         /**
-         * @brief 生成共享单文件模式下的新日志文件名
+         * @brief 生成日志文件名
          *
-         * 格式为：{时间戳}_{basename}_{pid}.log
+         * 格式为：{时间戳}_{tid}.log
          *
-         * @param basename 日志文件基名
-         * @return std::string 生成的完整文件名
-         */
-        inline std::string getFilenameSingle(const char *basename)
-        {
-            return std::format("{}_{}_{}.log", getTimestampString(), basename, static_cast<long long>(::getpid()));
-        }
-
-        /**
-         * @brief 生成共享单文件模式下的文件匹配后缀
-         *
-         * 格式为：_{basename}_{pid}.log，用于扫描和淘汰归属于本进程该基名的历史文件。
-         *
-         * @param basename 日志文件基名
-         * @return std::string 后缀字符串
-         */
-        inline std::string getSingleFileSuffix(std::string_view basename)
-        {
-            return "_" + std::string(basename) + "_" + std::to_string(static_cast<long long>(::getpid())) + ".log";
-        }
-
-        /// @brief 兼容性别名
-        inline std::string singleSuffix(std::string_view basename)
-        {
-            return getSingleFileSuffix(basename);
-        }
-
-        /**
-         * @brief 生成每线程独立文件模式下的新日志文件名
-         *
-         * 格式为：{时间戳}_{basename}_{pid}_{tid}.log
-         *
-         * @param basename 日志文件基名
          * @param tid 线程原生 ID
          * @return std::string 生成的完整文件名
          */
-        inline std::string getFilenameMultiple(const char *basename, long long tid)
+        inline std::string getFilename(long long tid)
         {
-            return std::format("{}_{}_{}_{}.log", getTimestampString(), basename, static_cast<long long>(::getpid()),
-                               tid);
+            return std::format("{}_{}.log", getTimestampString(), tid);
         }
 
         /**
-         * @brief 生成每线程独立文件模式下的文件匹配后缀
+         * @brief 生成文件匹配后缀
          *
-         * 格式为：_{basename}_{pid}_{tid}.log
+         * 格式为：_{tid}.log，用于扫描和淘汰归属于本线程的历史文件。
          *
-         * @param basename 日志文件基名
          * @param tid 线程原生 ID
          * @return std::string 后缀字符串
          */
-        inline std::string getMultipleFileSuffix(std::string_view basename, long long tid)
+        inline std::string getFileSuffix(long long tid)
         {
-            return "_" + std::string(basename) + "_" + std::to_string(static_cast<long long>(::getpid())) + "_" +
-                   std::to_string(tid) + ".log";
+            return "_" + std::to_string(tid) + ".log";
         }
 
-        /// @brief 兼容性别名
-        inline std::string multipleSuffix(std::string_view basename, long long tid)
+        /**
+         * @brief 校验文件名是否为合法的本库日志滚动历史文件
+         *
+         * 严格匹配：{8位年月日}_{6位时分秒}_{9位纳秒}{suffix}
+         * 规避将目录下非本库生成的意外同后缀文件误判为旧日志而错误删除的漏洞风险。
+         *
+         * @param name 待检测的文件名
+         * @param suffix 期望匹配的特征后缀（如 "_12345.log"）
+         * @return true 格式完全匹配
+         * @return false 格式不符
+         */
+        inline bool isValidLogFilename(std::string_view name, std::string_view suffix) noexcept
         {
-            return getMultipleFileSuffix(basename, tid);
+            if (name.size() != 25 + suffix.size())
+                return false;
+            if (!name.ends_with(suffix))
+                return false;
+            // 8 位年月日: YYYYMMDD
+            for (size_t i = 0; i < 8; ++i)
+                if (name[i] < '0' || name[i] > '9')
+                    return false;
+            if (name[8] != '_')
+                return false;
+            // 6 位时分秒: HHMMSS
+            for (size_t i = 9; i < 15; ++i)
+                if (name[i] < '0' || name[i] > '9')
+                    return false;
+            if (name[15] != '_')
+                return false;
+            // 9 位纳秒: nnnnnnnnn
+            for (size_t i = 16; i < 25; ++i)
+                if (name[i] < '0' || name[i] > '9')
+                    return false;
+            return true;
         }
 
         /**
          * @brief 扫描当前目录下匹配指定后缀的所有候选日志文件
          *
-         * 遍历目录并收集文件名字尾匹配目标后缀的文件，并按字典序从小到大（从旧到新）升序排列。
+         * 遍历目录并收集严格符合日志命名格式且尾部匹配目标后缀的文件，按字典序升序排列。
          *
          * @param suffix 目标文件后缀
          * @return std::vector<std::string> 排序后的历史文件列表
@@ -255,7 +263,7 @@ namespace mylog
                 if (it->is_regular_file(fileEc))
                 {
                     const std::string name = it->path().filename().string();
-                    if (name.size() > suffix.size() && name.ends_with(suffix))
+                    if (isValidLogFilename(name, suffix))
                         names.push_back(name);
                 }
                 it.increment(ec);
@@ -280,11 +288,11 @@ namespace mylog
          * @brief 增量维护并淘汰超出 maxFiles 数量的最旧日志文件
          *
          * 采用 O(1) 增量维护队列：
-         * 仅在首次滚动、目录变更（chdir）或 basename 变更时对当前工作目录进行一次基线扫描；
+         * 仅在首次滚动或目录变更（chdir）时对当前工作目录进行一次基线扫描；
          * 后续滚动时执行二分插入与 pop_front 淘汰，极大减少持有滚动锁期间因大量文件 IO 遍历而引发的线程阻塞。
          *
          * @param state 滚动保留状态机
-         * @param suffix 当前进程与当前 basename/tid 对应的后缀键
+         * @param suffix 当前线程对应的特征后缀键（如 "_12345.log"）
          * @param newFilename 刚刚生成创建的新日志文件名
          * @param maxFiles 最多允许保留的历史文件数（为 0 时表示不设限，不删除任何文件）
          */
@@ -324,7 +332,7 @@ namespace mylog
             while (state.knownFiles.size() > maxFiles)
             {
                 std::error_code rmEc;
-                fs::remove(state.knownFiles.front(), rmEc);
+                static_cast<void>(fs::remove(state.knownFiles.front(), rmEc));
                 state.knownFiles.pop_front();
             }
         }
@@ -355,7 +363,6 @@ namespace mylog
             size_t fileBufferCapacity = 128UL << 10;
             size_t fileCapacity = 100UL << 20;
             size_t intervalFlushFile_ms = 30UL * 1000;
-            std::string basename = "default";
             size_t maxFiles = 5;
 
             /**
@@ -370,33 +377,8 @@ namespace mylog
                 maxFiles = std::min(maxFiles, detail::kMaxMaxFiles);
                 threadBufferCapacity =
                     std::min(std::min(threadBufferCapacity, detail::kMaxThreadBufferCapacity), fileCapacity);
-                if (basename.empty())
-                    basename = "default";
             }
         };
-
-        /**
-         * @brief 校验日志文件基名（basename）是否合法
-         *
-         * 允许字符集：[a-zA-Z0-9._-]，拒绝包含路径分隔符、空字符串及相对路径保留名（"."、".."）。
-         *
-         * @param name 待检测的文件基名视图
-         * @return true 格式合法
-         * @return false 包含非法字符或超出最大长度限制
-         */
-        static bool isValidBasename(std::string_view name) noexcept
-        {
-            if (name.empty() || name.size() > detail::kMaxBasenameLength)
-                return false;
-            for (char c : name)
-            {
-                const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                                c == '.' || c == '-' || c == '_';
-                if (!ok)
-                    return false;
-            }
-            return name != "." && name != "..";
-        }
 
     private:
         std::atomic<int> fd_{-1};
@@ -404,9 +386,9 @@ namespace mylog
         std::atomic<uint64_t> writers_{0};
         std::atomic<size_t> fileBytes_{0};
         std::atomic<bool> rollPending_{false};
+        long long singleFileTid_ = detail::getThreadId();
 
         std::string sharedBuffer_;
-        std::string openedBasename_;
         std::chrono::steady_clock::time_point lastFlushSteady_{std::chrono::steady_clock::now()};
         std::atomic<int64_t> lastFlushTicks_{0};
         std::mutex mtx_;
@@ -465,7 +447,8 @@ namespace mylog
 
             const Config &cfg = refConfig();
 
-            const std::string filename = detail::getFilenameSingle(cfg.basename.c_str());
+            const long long tid = singleFileTid_;
+            const std::string filename = detail::getFilename(tid);
 
             const int fd = detail::openAppendNoFollow(filename.c_str());
             if (fd >= 0)
@@ -477,20 +460,16 @@ namespace mylog
             {
                 fileBytes_.store(0, std::memory_order_relaxed);
             }
-            openedBasename_ = cfg.basename;
             rollPending_.store(false, std::memory_order_release);
             touchFlushTimeLocked();
-            detail::purgeOldFiles(purge_, detail::getSingleFileSuffix(cfg.basename), filename, cfg.maxFiles);
+            detail::purgeOldFiles(purge_, detail::getFileSuffix(tid), filename, cfg.maxFiles);
         }
-
-        /// @brief 兼容性别名
-        void newFileSingleLocked() { rotateSingleFileLocked(); }
 
         /**
          * @brief 检查共享单文件是否需要触发滚动
          *
          * @param pending 即将写入的字节量
-         * @return true 需要滚动（文件未打开、基名改变、或当前大小加上待写入量超过 fileCapacity）
+         * @return true 需要滚动（文件未打开或当前大小加上待写入量超过 fileCapacity）
          * @return false 无需滚动
          */
         bool checkNeedRollSingleLocked(size_t pending) const
@@ -498,13 +477,8 @@ namespace mylog
             if (fd_.load(std::memory_order_relaxed) < 0)
                 return true;
             const Config &cfg = refConfig();
-            if (openedBasename_.empty() || cfg.basename != openedBasename_)
-                return true;
             return fileBytes_.load(std::memory_order_relaxed) + sharedBuffer_.size() + pending > cfg.fileCapacity;
         }
-
-        /// @brief 兼容性别名
-        bool needRollSingleLocked(size_t pending) const { return checkNeedRollSingleLocked(pending); }
 
         /**
          * @brief 将全局共享缓冲区中的数据刷入文件描述符（持有互斥锁）
@@ -518,9 +492,6 @@ namespace mylog
             sharedBuffer_.clear();
             touchFlushTimeLocked();
         }
-
-        /// @brief 兼容性别名
-        void writeFileLocked() noexcept { flushSharedBufferLocked(); }
 
         /**
          * @brief 共享单文件模式下加锁追加写入数据
@@ -594,9 +565,6 @@ namespace mylog
             return std::chrono::steady_clock::now() - last > interval;
         }
 
-        /// @brief 兼容性别名
-        bool flushDue() const noexcept { return isFlushDue(); }
-
         /**
          * @brief 共享单文件快路径：完全无锁落盘
          *
@@ -652,7 +620,7 @@ namespace mylog
         {
             std::lock_guard<std::mutex> locker(mtx_);
             const Config &cfg = refConfig();
-            if (fd_.load(std::memory_order_relaxed) < 0 || openedBasename_.empty() || cfg.basename != openedBasename_ ||
+            if (fd_.load(std::memory_order_relaxed) < 0 ||
                 fileBytes_.load(std::memory_order_relaxed) + data.size() > cfg.fileCapacity)
             {
                 rotateSingleFileLocked();
@@ -706,7 +674,6 @@ namespace mylog
             uint32_t counter = 0;
             int fd = -1;
             size_t bytes = 0;
-            std::string basename;
             detail::PurgeState purge;
             std::chrono::steady_clock::time_point lastFlush{std::chrono::steady_clock::now()};
             size_t capacity = 64UL << 10;
@@ -747,7 +714,7 @@ namespace mylog
         {
             const Config &cfg = refConfig();
             const long long tid = detail::getThreadId();
-            const std::string filename = detail::getFilenameMultiple(cfg.basename.c_str(), tid);
+            const std::string filename = detail::getFilename(tid);
             const int fd = detail::openAppendNoFollow(filename.c_str());
             if (fd >= 0)
             {
@@ -759,10 +726,8 @@ namespace mylog
                 buffer.bytes = 0;
                 buffer.fd = -1;
             }
-            buffer.basename = cfg.basename;
             buffer.lastFlush = std::chrono::steady_clock::now();
-            detail::purgeOldFiles(buffer.purge, detail::getMultipleFileSuffix(cfg.basename, tid), filename,
-                                  cfg.maxFiles);
+            detail::purgeOldFiles(buffer.purge, detail::getFileSuffix(tid), filename, cfg.maxFiles);
         }
 
         /**
@@ -776,8 +741,7 @@ namespace mylog
         void writeMultipleFile(TlsMultiple &buffer, std::string_view data) noexcept
         {
             const Config &cfg = refConfig();
-            const bool basenameChanged = buffer.basename.empty() || (cfg.basename != buffer.basename);
-            if (buffer.fd < 0 || basenameChanged || buffer.bytes + data.size() > cfg.fileCapacity)
+            if (buffer.fd < 0 || buffer.bytes + data.size() > cfg.fileCapacity)
             {
                 closeMultipleFile(buffer);
                 openMultipleFile(buffer);
@@ -801,7 +765,6 @@ namespace mylog
                 buffer.fd = -1;
             }
             buffer.bytes = 0;
-            buffer.basename.clear();
         }
 
         /**
@@ -831,6 +794,20 @@ namespace mylog
 
     public:
         /**
+         * @brief 获取共享单文件模式绑定的线程 ID（默认初始化为构建单例的主线程 ID）
+         *
+         * @return long long 线程原生 ID
+         */
+        long long getSingleFileTid() const noexcept { return singleFileTid_; }
+
+        /**
+         * @brief 设置共享单文件模式绑定的线程 ID
+         *
+         * @param tid 线程原生 ID
+         */
+        void setSingleFileTid(long long tid) noexcept { singleFileTid_ = tid; }
+
+        /**
          * @brief 获取当前文件管理器的配置快照
          *
          * @return Config 当前生效的配置对象
@@ -846,6 +823,16 @@ namespace mylog
         {
             cfg.normalize();
             cfgHolder_.publish(std::move(cfg));
+        }
+
+        /**
+         * @brief 显式轮转共享单文件并开启新日志文件
+         */
+        void rotateFile()
+        {
+            std::lock_guard<std::mutex> locker(mtx_);
+            flushSharedBufferLocked();
+            rotateSingleFileLocked();
         }
 
         /**
@@ -874,9 +861,15 @@ namespace mylog
             TlsSingle &buffer = tlsSingle();
             if (buffer.capacity == 0) [[unlikely]]
             {
-                std::lock_guard<std::mutex> locker(mtx_);
-                appendFileSingleLocked(msg);
-                return;
+                const size_t cfgCap = refConfig().threadBufferCapacity;
+                if (cfgCap == 0)
+                {
+                    std::lock_guard<std::mutex> locker(mtx_);
+                    appendFileSingleLocked(msg);
+                    return;
+                }
+                buffer.capacity = cfgCap;
+                buffer.data.reserve(cfgCap);
             }
 
             buffer.data.append(msg.data(), msg.size());
@@ -887,10 +880,24 @@ namespace mylog
                 buffer.counter = 0;
                 buffer.capacity = refConfig().threadBufferCapacity;
             }
-            else if ((++buffer.counter & 0xFFu) == 0 && isFlushDue()) [[unlikely]]
+            else
             {
-                flushTls(buffer);
-                buffer.counter = 0;
+                const uint32_t tick = (++buffer.counter) & 0xFFu;
+                if (tick == 0 && isFlushDue()) [[unlikely]]
+                {
+                    flushTls(buffer);
+                    buffer.counter = 0;
+                }
+                else if (tick == 1)
+                {
+                    const size_t cfgCap = refConfig().threadBufferCapacity;
+                    if (cfgCap != buffer.capacity)
+                    {
+                        buffer.capacity = cfgCap;
+                        if (cfgCap > buffer.data.capacity())
+                            buffer.data.reserve(cfgCap);
+                    }
+                }
             }
         }
 
@@ -901,8 +908,7 @@ namespace mylog
         {
             TlsSingle &buffer = tlsSingle();
             std::lock_guard<std::mutex> locker(mtx_);
-            const Config &cfg = refConfig();
-            if (fd_.load(std::memory_order_relaxed) < 0 || openedBasename_.empty() || cfg.basename != openedBasename_)
+            if (fd_.load(std::memory_order_relaxed) < 0)
             {
                 flushSharedBufferLocked();
                 rotateSingleFileLocked();
@@ -933,8 +939,14 @@ namespace mylog
             TlsMultiple &buffer = tlsMultiple();
             if (buffer.capacity == 0) [[unlikely]]
             {
-                writeMultipleFile(buffer, msg);
-                return;
+                const size_t cfgCap = refConfig().threadBufferCapacity;
+                if (cfgCap == 0)
+                {
+                    writeMultipleFile(buffer, msg);
+                    return;
+                }
+                buffer.capacity = cfgCap;
+                buffer.data.reserve(cfgCap);
             }
 
             buffer.data.append(msg.data(), msg.size());
@@ -944,13 +956,27 @@ namespace mylog
                 buffer.counter = 0;
                 buffer.capacity = refConfig().threadBufferCapacity;
             }
-            else if ((++buffer.counter & 0xFFu) == 0) [[unlikely]]
+            else
             {
-                const std::chrono::milliseconds interval(refConfig().intervalFlushFile_ms);
-                if (std::chrono::steady_clock::now() - buffer.lastFlush > interval)
+                const uint32_t tick = (++buffer.counter) & 0xFFu;
+                if (tick == 0) [[unlikely]]
                 {
-                    flushMultiple(buffer);
-                    buffer.counter = 0;
+                    const std::chrono::milliseconds interval(refConfig().intervalFlushFile_ms);
+                    if (std::chrono::steady_clock::now() - buffer.lastFlush > interval)
+                    {
+                        flushMultiple(buffer);
+                        buffer.counter = 0;
+                    }
+                }
+                else if (tick == 1)
+                {
+                    const size_t cfgCap = refConfig().threadBufferCapacity;
+                    if (cfgCap != buffer.capacity)
+                    {
+                        buffer.capacity = cfgCap;
+                        if (cfgCap > buffer.data.capacity())
+                            buffer.data.reserve(cfgCap);
+                    }
                 }
             }
         }
@@ -996,10 +1022,20 @@ namespace mylog
                 buffer.counter = 0;
                 buffer.capacity = getInstance().refConfig().threadBufferCapacity;
             }
-            else if ((++buffer.counter & 0xFFu) == 0 && getInstance().isFlushDue()) [[unlikely]]
+            else
             {
-                getInstance().flushTls(buffer);
-                buffer.counter = 0;
+                const uint32_t tick = (++buffer.counter) & 0xFFu;
+                if (tick == 0 && getInstance().isFlushDue()) [[unlikely]]
+                {
+                    getInstance().flushTls(buffer);
+                    buffer.counter = 0;
+                }
+                else if (tick == 1)
+                {
+                    const size_t cfgCap = getInstance().refConfig().threadBufferCapacity;
+                    if (cfgCap != buffer.capacity)
+                        buffer.capacity = cfgCap;
+                }
             }
         }
 
@@ -1008,7 +1044,7 @@ namespace mylog
          *
          * @return OutputFunction 输出函数对象
          */
-        inline static OutputFunction outputFunction_file() noexcept
+        inline static OutputFunction createFileOutputFunction() noexcept
         {
             return OutputFunction{&fileOutputThunk, nullptr, &acquireSingleBuffer, &releaseSingleBuffer};
         }
@@ -1018,13 +1054,10 @@ namespace mylog
          *
          * @return FlushFunction 刷新函数对象
          */
-        inline static FlushFunction flushFunction_file() noexcept { return FlushFunction{&fileFlushThunk, nullptr}; }
-
-        /// @brief 动词+名词 规范命名的工厂别名
-        inline static OutputFunction createFileOutputFunction() noexcept { return outputFunction_file(); }
-
-        /// @brief 动词+名词 规范命名的工厂别名
-        inline static FlushFunction createFileFlushFunction() noexcept { return flushFunction_file(); }
+        inline static FlushFunction createFileFlushFunction() noexcept
+        {
+            return FlushFunction{&fileFlushThunk, nullptr};
+        }
 
         inline static void perThreadOutputThunk(void * /*ctx*/, std::string_view msg)
         {
@@ -1059,13 +1092,23 @@ namespace mylog
                 buffer.counter = 0;
                 buffer.capacity = getInstance().refConfig().threadBufferCapacity;
             }
-            else if ((++buffer.counter & 0xFFu) == 0) [[unlikely]]
+            else
             {
-                const std::chrono::milliseconds interval(getInstance().refConfig().intervalFlushFile_ms);
-                if (std::chrono::steady_clock::now() - buffer.lastFlush > interval)
+                const uint32_t tick = (++buffer.counter) & 0xFFu;
+                if (tick == 0) [[unlikely]]
                 {
-                    getInstance().flushMultiple(buffer);
-                    buffer.counter = 0;
+                    const std::chrono::milliseconds interval(getInstance().refConfig().intervalFlushFile_ms);
+                    if (std::chrono::steady_clock::now() - buffer.lastFlush > interval)
+                    {
+                        getInstance().flushMultiple(buffer);
+                        buffer.counter = 0;
+                    }
+                }
+                else if (tick == 1)
+                {
+                    const size_t cfgCap = getInstance().refConfig().threadBufferCapacity;
+                    if (cfgCap != buffer.capacity)
+                        buffer.capacity = cfgCap;
                 }
             }
         }
@@ -1075,7 +1118,7 @@ namespace mylog
          *
          * @return OutputFunction 输出函数对象
          */
-        inline static OutputFunction outputFunction_filePerThread() noexcept
+        inline static OutputFunction createPerThreadFileOutputFunction() noexcept
         {
             return OutputFunction{&perThreadOutputThunk, nullptr, &acquireMultipleBuffer, &releaseMultipleBuffer};
         }
@@ -1085,21 +1128,9 @@ namespace mylog
          *
          * @return FlushFunction 刷新函数对象
          */
-        inline static FlushFunction flushFunction_filePerThread() noexcept
-        {
-            return FlushFunction{&perThreadFlushThunk, nullptr};
-        }
-
-        /// @brief 动词+名词 规范命名的工厂别名
-        inline static OutputFunction createPerThreadFileOutputFunction() noexcept
-        {
-            return outputFunction_filePerThread();
-        }
-
-        /// @brief 动词+名词 规范命名的工厂别名
         inline static FlushFunction createPerThreadFileFlushFunction() noexcept
         {
-            return flushFunction_filePerThread();
+            return FlushFunction{&perThreadFlushThunk, nullptr};
         }
     };
 

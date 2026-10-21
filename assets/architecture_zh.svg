@@ -101,7 +101,7 @@
 
     <rect x="312" y="295" width="128" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
     <text x="320" y="313" class="heading" font-size="10">时间与 TID 缓存</text>
-    <text x="320" y="328" class="subtext">秒级缓存 + 毫秒/UTC</text>
+    <text x="320" y="328" class="subtext">秒级缓存 + 纳秒/UTC</text>
     <text x="320" y="342" class="subtext">POSIX TID 前缀复用</text>
 
     <rect x="448" y="295" width="132" height="54" rx="5" fill="#0d1117" stroke="#30363d"/>
@@ -123,23 +123,23 @@
     <rect x="40" y="414" width="255" height="144" rx="6" fill="#0d1117" stroke="#1f6feb" stroke-width="1.2"/>
     <rect x="50" y="422" width="90" height="18" rx="3" fill="#1f6feb" fill-opacity="0.3"/>
     <text x="56" y="435" class="badge-text" fill="#58a6ff">共享单文件模式</text>
-    <text x="50" y="456" class="code" font-size="10">outputFunction_file()</text>
+    <text x="50" y="456" class="code" font-size="10">createFileOutputFunction()</text>
     <text x="50" y="473" class="subtext">• 借出 TLS 落盘写缓冲（默认 64 KiB）</text>
     <text x="50" y="489" class="subtext">• 内核 <tspan class="code">O_APPEND</tspan> 原子追尾 write(2)</text>
     <text x="50" y="505" class="subtext">• 热路径：<tspan fill="#3fb950" font-weight="600">用户态完全零锁、零拷贝</tspan></text>
     <text x="50" y="522" class="subtext">• 实测吞吐：<tspan fill="#79c0ff" font-weight="600">117.2 ns/op (8.5M ops/s)</tspan></text>
-    <text x="50" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;.log</text>
+    <text x="50" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;tid&gt;.log</text>
 
     <!-- Branch B: Per-Thread Dedicated Files -->
     <rect x="305" y="414" width="275" height="144" rx="6" fill="#0d1117" stroke="#8957e5" stroke-width="1.2"/>
     <rect x="315" y="422" width="95" height="18" rx="3" fill="#8957e5" fill-opacity="0.3"/>
     <text x="321" y="435" class="badge-text" fill="#d2a8ff">每线程独占模式</text>
-    <text x="315" y="456" class="code" font-size="10">outputFunction_filePerThread()</text>
+    <text x="315" y="456" class="code" font-size="10">createPerThreadFileOutputFunction()</text>
     <text x="315" y="473" class="subtext">• 各线程独占 fd 与独立 TLS 写缓冲</text>
     <text x="315" y="489" class="subtext">• 彻底消除跨线程写争用与滚动等待</text>
     <text x="315" y="505" class="subtext">• 保障极致平稳的长尾延迟（p99/p999）</text>
     <text x="315" y="522" class="subtext">• 独立增量滚动与保留清理</text>
-    <text x="315" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;basename&gt;_&lt;pid&gt;_&lt;tid&gt;.log</text>
+    <text x="315" y="539" class="code" font-size="9" fill="#8b949e">&lt;ts&gt;_&lt;tid&gt;.log</text>
   </g>
 
 
@@ -187,7 +187,7 @@
     <text x="630" y="490" class="subtext">• 最多保留 <tspan class="code">maxFiles</tspan> 个最新日志文件</text>
     <text x="630" y="506" class="subtext">• 初始基线扫描 + 滚动时 <tspan fill="#3fb950" font-weight="600">O(1)</tspan> 二分插入与淘汰</text>
     <text x="630" y="522" class="subtext">• 避免大目录每次滚动全量遍历引发 I/O 阻塞</text>
-    <text x="630" y="538" class="subtext">• 严格按当前进程 <tspan class="code">PID</tspan> 隔离，不误删外部文件</text>
+    <text x="630" y="538" class="subtext">• 严格按目标特征后缀与格式校验，不误删外部文件</text>
   </g>
 
   <!-- Connective flow between FileManager and Rolling -->

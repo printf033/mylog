@@ -40,7 +40,7 @@ namespace mylog
         FATAL
     };
 
-    inline constexpr size_t kLevelCount = reflect::enum_count<LEVEL>();
+    inline constexpr size_t kLevelCount = reflect::countEnumMembers<LEVEL>();
     static_assert(kLevelCount == 6, "Expected 6 log levels");
 
     enum class FATAL_ACTION : uint8_t
@@ -139,12 +139,6 @@ namespace mylog
                 std::fwrite(msg.data(), 1, msg.size(), stdout);
         }
 
-        /// @brief 动词+名词 规范命名的别名
-        inline void writeStdout(void *ctx, std::string_view msg)
-        {
-            stdoutOutput(ctx, msg);
-        }
-
         /**
          * @brief 默认控制台强制刷盘实现（刷新 stdout）
          *
@@ -155,11 +149,33 @@ namespace mylog
             std::fflush(stdout);
         }
 
-        /// @brief 动词+名词 规范命名的别名
-        inline void flushStdout(void *ctx)
+        /**
+         * @brief 输出缓冲区事务卫述类（RAII）
+         *
+         * 纯 RAII 实现，无任何 try/catch 依赖，零异常开销，天然兼容 -fno-exceptions。
+         * 保证在非正常提前退出或栈展开时，自动回滚缓冲区已写入字节，
+         * 并妥善释放所获取的线程缓冲区（release 0 字节），避免脏前缀残留。
+         */
+        struct OutputBufferGuard
         {
-            stdoutFlush(ctx);
-        }
+            const OutputFunction &fn;
+            std::string &buf;
+            const size_t origSize;
+            const bool isAcquired;
+            bool committed = false;
+
+            ~OutputBufferGuard() noexcept
+            {
+                if (!committed) [[unlikely]]
+                {
+                    buf.resize(origSize);
+                    if (isAcquired && fn.release != nullptr)
+                    {
+                        fn.release(fn.ctx, 0);
+                    }
+                }
+            }
+        };
 
         /**
          * @brief 将日志级别枚举映射为前缀文本字符串
@@ -174,13 +190,6 @@ namespace mylog
             if (idx >= kLevelCount) [[unlikely]]
                 return "UNKNOWN";
             return (*lv2str)[idx];
-        }
-
-        /// @brief 动词+名词 规范命名的别名
-        inline const char *convertLevelToString(const std::array<const char *, kLevelCount> *lv2str,
-                                                LEVEL level) noexcept
-        {
-            return levelToStr(lv2str, level);
         }
 
         inline constexpr size_t kMinMaxLogLength = 1ULL << 6;
@@ -206,11 +215,13 @@ namespace mylog
         /**
          * @brief 快速十进制数字填充至定长缓冲区
          *
+         * @tparam Int 整数类型
          * @param dst 目标缓冲区起始地址
          * @param value 待写入的非负整数
          * @param width 目标填充宽度（不足则高位补 '0'）
          */
-        inline void putDigits(char *dst, int value, int width) noexcept
+        template <typename Int>
+        inline void putDigits(char *dst, Int value, int width) noexcept
         {
             for (int i = width - 1; i >= 0; --i)
             {
@@ -219,24 +230,18 @@ namespace mylog
             }
         }
 
-        /// @brief 动词+名词 规范命名的别名
-        inline void writeDigits(char *dst, int value, int width) noexcept
-        {
-            putDigits(dst, value, width);
-        }
-
         /**
-         * @brief 格式化并追加高精度时间戳
+         * @brief 格式化并追加纳秒级高精度时间戳
          *
-         * 采用基于 thread_local 秒级缓存与 putDigits 快速除法的高性能时间格式化算法：
-         * 同一秒内的多次日志打印直接复用预格式化好的秒级前缀，仅需格式化毫秒部分，
-         * 消除频繁调用 localtime_r / gmtime_r 带来的锁竞争与内核开销。
+         * 采用基于 thread_local 秒级文本缓存与 putDigits 快速除法的高性能时间格式化算法：
+         * 同一秒内的多次日志打印直接复用预格式化好的秒级前缀（含小数点），消除频繁调用
+         * localtime_r / gmtime_r 带来的锁竞争与内核开销。
+         * 热路径零中间栈缓冲，原位直接填充 29 字节纳秒时间戳（YYYY-MM-DD HH:MM:SS.nnnnnnnnn）。
          *
          * @param out 输出目标字符串引用
-         * @param withMs 是否包含毫秒（.xxx）
          * @param utc 是否使用 UTC 时间（false 为本地时区）
          */
-        inline void appendTimestamp(std::string &out, bool withMs, bool utc)
+        inline void appendTimestamp(std::string &out, bool utc = false)
         {
             using namespace std::chrono;
             const auto now = system_clock::now();
@@ -247,7 +252,7 @@ namespace mylog
             {
                 std::time_t second = static_cast<std::time_t>(-1);
                 bool wasUtc = false;
-                char text[20] = "0000-00-00 00:00:00";
+                char text[21] = "0000-00-00 00:00:00.";
             } cache;
             if (s != cache.second || utc != cache.wasUtc) [[unlikely]]
             {
@@ -268,26 +273,18 @@ namespace mylog
                 putDigits(p + 14, clampValue(tm.tm_min, 0, 99), 2);
                 p[16] = ':';
                 putDigits(p + 17, clampValue(tm.tm_sec, 0, 99), 2);
-                p[19] = '\0';
+                p[19] = '.';
+                p[20] = '\0';
                 cache.second = s;
                 cache.wasUtc = utc;
             }
 
-            if (withMs)
-            {
-                char buf[24];
-                std::memcpy(buf, cache.text, 19);
-                buf[19] = '.';
-                const unsigned ms = static_cast<unsigned>(duration_cast<milliseconds>(now - secs).count());
-                buf[20] = static_cast<char>('0' + ms / 100);
-                buf[21] = static_cast<char>('0' + (ms / 10) % 10);
-                buf[22] = static_cast<char>('0' + ms % 10);
-                out.append(buf, 23);
-            }
-            else
-            {
-                out.append(cache.text, 19);
-            }
+            const size_t sz = out.size();
+            out.resize(sz + 29);
+            char *dst = out.data() + sz;
+            std::memcpy(dst, cache.text, 20);
+            const auto nanos = duration_cast<nanoseconds>(now - secs).count();
+            putDigits(dst + 20, clampValue<int64_t>(nanos, 0, 999999999), 9);
         }
 
         /**
@@ -339,12 +336,6 @@ namespace mylog
             return tid;
         }
 
-        /// @brief 兼容性别名
-        inline long long threadId() noexcept
-        {
-            return getThreadId();
-        }
-
         /**
          * @brief 获取预格式化好的当前线程 ID 标签前缀
          *
@@ -368,12 +359,6 @@ namespace mylog
                 }
             } cache;
             return {cache.text, cache.len};
-        }
-
-        /// @brief 兼容性别名
-        inline std::string_view cachedThreadIdPrefix() noexcept
-        {
-            return getCachedThreadIdPrefix();
         }
 
         /**
@@ -415,12 +400,6 @@ namespace mylog
                     return true;
             }
             return false;
-        }
-
-        /// @brief 兼容性别名
-        inline bool needsEscape(const char *data, size_t size) noexcept
-        {
-            return checkNeedsEscape(data, size);
         }
 
         /**
@@ -495,7 +474,6 @@ namespace mylog
             const std::array<const char *, kLevelCount> *lv2str = &LV2STR;
             FATAL_ACTION fatalAction = FATAL_ACTION::NONE;
             bool escapeControlChars = true;
-            bool timestampWithMs = true;
             bool timestampUtc = false;
             size_t maxLogLength = 1ULL << 20;
             OutputFunction outputFunction{&detail::stdoutOutput, nullptr};
@@ -662,9 +640,11 @@ namespace mylog
             if (destBuf == nullptr)
                 buf.clear();
 
-            detail::appendTimestamp(buf, cfg.timestampWithMs, cfg.timestampUtc);
+            detail::OutputBufferGuard bufGuard{cfg.outputFunction, buf, logStart, destBuf != nullptr};
+
+            detail::appendTimestamp(buf, cfg.timestampUtc);
             buf.append(detail::levelToStr(cfg.lv2str, level));
-            buf.append(detail::cachedThreadIdPrefix());
+            buf.append(detail::getCachedThreadIdPrefix());
             buf.append(func);
             buf.append(">>", 2);
 
@@ -691,6 +671,8 @@ namespace mylog
                 scratch.assign(buf.data() + msgStart, msgLen);
                 buf.resize(msgStart);
                 detail::appendEscaped(buf, scratch);
+                if (buf.size() - msgStart > cfg.maxLogLength) [[unlikely]]
+                    buf.resize(msgStart + cfg.maxLogLength);
             }
 
             buf.append(" (", 2);
@@ -700,6 +682,7 @@ namespace mylog
             buf.append(")\n", 2);
 
             const size_t written = buf.size() - logStart;
+            bufGuard.committed = true;
             if (destBuf != nullptr)
             {
                 cfg.outputFunction.release(cfg.outputFunction.ctx, written);
@@ -772,13 +755,20 @@ namespace mylog
             if (destBuf == nullptr)
                 buf.clear();
 
-            detail::appendTimestamp(buf, cfg.timestampWithMs, cfg.timestampUtc);
+            detail::OutputBufferGuard bufGuard{cfg.outputFunction, buf, logStart, destBuf != nullptr};
+
+            detail::appendTimestamp(buf, cfg.timestampUtc);
             buf.append(detail::levelToStr(cfg.lv2str, level));
-            buf.append(detail::cachedThreadIdPrefix());
+            buf.append(detail::getCachedThreadIdPrefix());
             buf.append(func);
             buf.append(">>", 2);
             if (cfg.escapeControlChars)
+            {
+                const size_t msgStart = buf.size();
                 detail::appendEscaped(buf, message);
+                if (buf.size() - msgStart > cfg.maxLogLength) [[unlikely]]
+                    buf.resize(msgStart + cfg.maxLogLength);
+            }
             else if (!message.empty())
                 buf.append(message.data(), message.size());
             buf.append(" (", 2);
@@ -788,6 +778,7 @@ namespace mylog
             buf.append(")\n", 2);
 
             const size_t written = buf.size() - logStart;
+            bufGuard.committed = true;
             if (destBuf != nullptr)
             {
                 cfg.outputFunction.release(cfg.outputFunction.ctx, written);
@@ -887,12 +878,6 @@ namespace mylog
     inline LEVEL getCurrentSuppressLevel() noexcept
     {
         return Logger::getInstance().getSuppressLevel();
-    }
-
-    /// @brief 兼容性别名
-    inline LEVEL currentSuppressLevel() noexcept
-    {
-        return getCurrentSuppressLevel();
     }
 
     /**
@@ -1194,7 +1179,7 @@ namespace mylog
     {                                                                                                                  \
         if constexpr (static_cast<int>(::mylog::LEVEL::lv) >= ::mylog::detail::kActiveLevel)                           \
         {                                                                                                              \
-            if (::mylog::LEVEL::lv >= ::mylog::currentSuppressLevel())                                                 \
+            if (::mylog::LEVEL::lv >= ::mylog::getCurrentSuppressLevel())                                              \
             {                                                                                                          \
                 ::mylog::logger(::mylog::LEVEL::lv, __FILE__, __LINE__, __func__ __VA_OPT__(, ) __VA_ARGS__);          \
             }                                                                                                          \
@@ -1205,21 +1190,5 @@ namespace mylog
 #define LOG_DEBUG(...) MYLOG_LOG_IMPL(DEBUG, __VA_ARGS__)
 #define LOG_INFO(...) MYLOG_LOG_IMPL(INFO, __VA_ARGS__)
 #define LOG_WARN(...) MYLOG_LOG_IMPL(WARN, __VA_ARGS__)
-
-#define LOG_ERROR(...)                                                                                                 \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        if constexpr (static_cast<int>(::mylog::LEVEL::ERROR) >= ::mylog::detail::kActiveLevel)                        \
-        {                                                                                                              \
-            ::mylog::logger(::mylog::LEVEL::ERROR, __FILE__, __LINE__, __func__ __VA_OPT__(, ) __VA_ARGS__);           \
-        }                                                                                                              \
-    } while (0)
-
-#define LOG_FATAL(...)                                                                                                 \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        if constexpr (static_cast<int>(::mylog::LEVEL::FATAL) >= ::mylog::detail::kActiveLevel)                        \
-        {                                                                                                              \
-            ::mylog::logger(::mylog::LEVEL::FATAL, __FILE__, __LINE__, __func__ __VA_OPT__(, ) __VA_ARGS__);           \
-        }                                                                                                              \
-    } while (0)
+#define LOG_ERROR(...) MYLOG_LOG_IMPL(ERROR, __VA_ARGS__)
+#define LOG_FATAL(...) MYLOG_LOG_IMPL(FATAL, __VA_ARGS__)

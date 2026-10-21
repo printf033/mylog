@@ -54,12 +54,6 @@ namespace mylog::reflect
         return !std::meta::annotations_of_with_type(m, ^^mylog::sensitive_t).empty();
     }
 
-    /// @brief 兼容性别名
-    consteval bool is_sensitive(std::meta::info m) noexcept
-    {
-        return isSensitive(m);
-    }
-
     /**
      * @brief 获取枚举类型的枚举项总数
      *
@@ -73,14 +67,6 @@ namespace mylog::reflect
     consteval size_t countEnumMembers() noexcept
     {
         return std::meta::enumerators_of(^^E).size();
-    }
-
-    /// @brief 兼容性别名
-    template <typename E>
-        requires std::is_enum_v<E>
-    consteval size_t enum_count() noexcept
-    {
-        return countEnumMembers<E>();
     }
 
     /**
@@ -104,14 +90,6 @@ namespace mylog::reflect
         return arr;
     }
 
-    /// @brief 兼容性别名
-    template <typename E>
-        requires std::is_enum_v<E>
-    consteval auto get_enum_entries() noexcept
-    {
-        return getEnumEntries<E>();
-    }
-
     /**
      * @brief 将枚举值转换为其字面量名称字符串
      *
@@ -132,14 +110,6 @@ namespace mylog::reflect
                 return name;
         }
         return "UNKNOWN";
-    }
-
-    /// @brief 兼容性别名
-    template <typename E>
-        requires std::is_enum_v<E>
-    constexpr std::string_view enum_to_string(E val) noexcept
-    {
-        return enumToString(val);
     }
 
     /**
@@ -191,14 +161,6 @@ namespace mylog::reflect
         return std::nullopt;
     }
 
-    /// @brief 兼容性别名
-    template <typename E>
-        requires std::is_enum_v<E>
-    constexpr std::optional<E> parse_enum(std::string_view str, bool caseInsensitive = true) noexcept
-    {
-        return parseEnum<E>(str, caseInsensitive);
-    }
-
     /**
      * @brief 获取类型非静态数据成员的数量
      *
@@ -211,13 +173,6 @@ namespace mylog::reflect
     consteval size_t countMembers() noexcept
     {
         return std::meta::nonstatic_data_members_of(^^T, std::meta::access_context::unchecked()).size();
-    }
-
-    /// @brief 兼容性别名
-    template <typename T>
-    consteval size_t member_count() noexcept
-    {
-        return countMembers<T>();
     }
 
     /**
@@ -238,13 +193,6 @@ namespace mylog::reflect
             arr[i] = mems[i];
         }
         return arr;
-    }
-
-    /// @brief 兼容性别名
-    template <typename T>
-    consteval auto get_member_infos() noexcept
-    {
-        return getMemberInfos<T>();
     }
 
     /**

@@ -2,7 +2,7 @@
 --
 -- 安全说明：脚本在裸 lua_State 中执行，io / os / package / debug 等标准库
 -- 都没有注册，因此配置脚本无法读写文件、启动进程或执行命令。
--- 字段类型不符会被忽略，数值越界会被钳制，非法 basename 会让整份配置被拒绝。
+-- 字段类型不符会被忽略，数值越界会被安全钳位。
 
 logger = {
     -- 低于该级别的日志被直接丢弃
@@ -14,9 +14,6 @@ logger = {
 
     -- 是否转义控制字符（含 ESC / \x7f），用于阻断日志注入伪造 ANSI 序列
     escapeControlChars = true,
-
-    -- 时间戳是否带毫秒。false 走 thread_local 秒级缓存，热路径更快
-    timestampWithMs = true,
 
     -- 时间戳用 UTC（true）还是本地时间（false）
     timestampUtc = false,
@@ -48,9 +45,5 @@ fileManager = {
 
     -- 保留的日志文件数上限，0 = 不清理（需显式写 0），上限 1024
     -- 磁盘占用上界 ≈ maxFiles × fileCapacity，避免长期运行写满磁盘
-    maxFiles = 5,
-
-    -- 日志文件名前缀，只允许 [A-Za-z0-9._-]，长度 <= 128
-    -- 含路径分隔符、空白或路径穿越（"." / ".."）会被拒绝
-    basename = "default"
+    maxFiles = 5
 }

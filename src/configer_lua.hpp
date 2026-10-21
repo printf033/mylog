@@ -3,6 +3,7 @@
 #include "fileManager.hpp"
 #include <cstdio>
 #include <filesystem>
+#include <format>
 #include <string>
 #include <utility>
 extern "C"
@@ -90,22 +91,30 @@ namespace mylog
         /**
          * @brief 输出配置解析警告或错误信息至标准错误
          *
-         * @param fmt 格式化字符串
+         * 基于 std::format 而非 printf 风格，避免调用点误传非常量格式串导致
+         * 格式化字符串注入风险；detailStr 作为位置参数安全插入。
+         *
+         * @param fmt std::format 格式化字符串（编译期检查）
          * @param detailStr 可选的具体错误明细字符串
          */
-        inline void printError(const char *fmt, const char *detailStr = nullptr)
+        template <typename... Args>
+        inline void printError(std::format_string<Args...> fmt, Args &&...args)
         {
-            std::fprintf(stderr, "[mylog] config error: ");
-            std::fprintf(stderr, fmt, detailStr);
-            std::fprintf(stderr, "\n");
+            std::fprintf(stderr, "[mylog] config error: %s\n", std::format(fmt, std::forward<Args>(args)...).c_str());
+        }
+
+        /// 无参数占位重载：保持 "无明细" 调用点可读（format 串无占位符时直接输出）
+        inline void printError(std::format_string<> fmt)
+        {
+            std::fprintf(stderr, "[mylog] config error: %s\n", std::format(fmt).c_str());
         }
 
         /**
          * @brief 解析并加载 Lua 配置中的 logger 配置节
          *
          * 从 Lua 栈中的 logger table 提取并校验各字段配置：
-         * 包括 suppressLevel、stdoutVivid、escapeControlChars、timestampWithMs、
-         * timestampUtc、maxLogLength 以及 fatalAction。
+         * 包括 suppressLevel、stdoutVivid、escapeControlChars、
+         * timestampUtc、maxLogLength 以及 fatalAction。时间戳精度统一为纳秒级无需开关。
          *
          * @param L Lua 状态机指针
          * @param idx logger 表在栈上的索引
@@ -129,21 +138,19 @@ namespace mylog
                 }
                 else
                 {
-                    printError("logger.suppressLevel unknown value: %s", text.c_str());
+                    printError("logger.suppressLevel unknown value: {}", text.c_str());
                     valid = false;
                 }
             }
             else if (readNumberField(L, idx, "suppressLevel", num))
             {
-                printError("%s", "logger.suppressLevel must be a level string, integer not allowed");
+                printError("logger.suppressLevel must be a level string, integer not allowed");
                 valid = false;
             }
             if (readBoolField(L, idx, "stdoutVivid", flag))
                 cfg.lv2str = flag ? &LV2STR_VIVID : &LV2STR;
             if (readBoolField(L, idx, "escapeControlChars", flag))
                 cfg.escapeControlChars = flag;
-            if (readBoolField(L, idx, "timestampWithMs", flag))
-                cfg.timestampWithMs = flag;
             if (readBoolField(L, idx, "timestampUtc", flag))
                 cfg.timestampUtc = flag;
             if (readNumberField(L, idx, "maxLogLength", num))
@@ -151,7 +158,7 @@ namespace mylog
                 const lua_Integer v = clampValue<lua_Integer>(num, static_cast<lua_Integer>(kMinMaxLogLength),
                                                               static_cast<lua_Integer>(kMaxMaxLogLength));
                 if (v != num)
-                    printError("%s", "logger.maxLogLength clamped");
+                    printError("logger.maxLogLength clamped");
                 cfg.maxLogLength = static_cast<size_t>(v);
             }
 
@@ -163,13 +170,13 @@ namespace mylog
                 }
                 else
                 {
-                    printError("logger.fatalAction unknown value: %s", text.c_str());
+                    printError("logger.fatalAction unknown value: {}", text.c_str());
                     valid = false;
                 }
             }
             else if (readNumberField(L, idx, "fatalAction", num))
             {
-                printError("%s", "logger.fatalAction must be a string, integer not allowed");
+                printError("logger.fatalAction must be a string, integer not allowed");
                 valid = false;
             }
             return valid;
@@ -184,14 +191,12 @@ namespace mylog
          * @param L Lua 状态机指针
          * @param idx fileManager 表在栈上的索引
          * @param cfg 待填充的 FileManager::Config 配置结构体
-         * @return true 所有字段合法或已安全钳位
-         * @return false 存在非法字段（如 basename 包含越界非法字符）
+         * @return true 所有字段合法并已安全钳位
          */
         inline bool loadFileManagerSection(lua_State *L, int idx, FileManager::Config &cfg)
         {
             bool valid = true;
             lua_Integer num = 0;
-            std::string text;
 
             static constexpr auto members = reflect::getMemberInfos<FileManager::Config>();
             template for (constexpr auto m : members)
@@ -208,7 +213,7 @@ namespace mylog
                             const lua_Integer v =
                                 clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxThreadBufferCapacity));
                             if (v != num)
-                                printError("%s", "fileManager.threadBufferCapacity clamped");
+                                printError("fileManager.threadBufferCapacity clamped");
                             cfg.[:m:] = static_cast<size_t>(v);
                         }
                         else if constexpr (fieldName == "fileBufferCapacity")
@@ -217,7 +222,7 @@ namespace mylog
                                 clampValue<lua_Integer>(num, static_cast<lua_Integer>(kMinFileBufferCapacity),
                                                         static_cast<lua_Integer>(kMaxFileBufferCapacity));
                             if (v != num)
-                                printError("%s", "fileManager.fileBufferCapacity clamped");
+                                printError("fileManager.fileBufferCapacity clamped");
                             cfg.[:m:] = static_cast<size_t>(v);
                         }
                         else if constexpr (fieldName == "fileCapacity")
@@ -226,7 +231,7 @@ namespace mylog
                                 clampValue<lua_Integer>(num, static_cast<lua_Integer>(kMinFileCapacity),
                                                         static_cast<lua_Integer>(kMaxFileCapacity));
                             if (v != num)
-                                printError("%s", "fileManager.fileCapacity clamped");
+                                printError("fileManager.fileCapacity clamped");
                             cfg.[:m:] = static_cast<size_t>(v);
                         }
                         else if constexpr (fieldName == "intervalFlushFile_ms")
@@ -234,7 +239,7 @@ namespace mylog
                             const lua_Integer v =
                                 clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxIntervalFlushMs));
                             if (v != num)
-                                printError("%s", "fileManager.intervalFlushFile_ms clamped");
+                                printError("fileManager.intervalFlushFile_ms clamped");
                             cfg.[:m:] = static_cast<size_t>(v);
                         }
                         else if constexpr (fieldName == "maxFiles")
@@ -242,24 +247,8 @@ namespace mylog
                             const lua_Integer v =
                                 clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxMaxFiles));
                             if (v != num)
-                                printError("%s", "fileManager.maxFiles clamped");
+                                printError("fileManager.maxFiles clamped");
                             cfg.[:m:] = static_cast<size_t>(v);
-                        }
-                    }
-                }
-                else if constexpr (std::is_same_v<FieldType, std::string>)
-                {
-                    if (readStringField(L, idx, fieldName.data(), text))
-                    {
-                        if constexpr (fieldName == "basename")
-                        {
-                            if (FileManager::isValidBasename(text))
-                                cfg.[:m:] = text;
-                            else
-                            {
-                                printError("fileManager.basename rejected: %s", text.c_str());
-                                valid = false;
-                            }
                         }
                     }
                 }
@@ -287,14 +276,18 @@ namespace mylog
         lua_State *L = luaL_newstate();
         if (L == nullptr)
         {
-            detail::printError("%s", "cannot create lua state");
+            detail::printError("cannot create lua state");
             return false;
         }
 
-        if (luaL_dofile(L, config.c_str()) != LUA_OK)
+        lua_sethook(
+            L, [](lua_State *LS, lua_Debug * /*ar*/)
+            { luaL_error(LS, "config script aborted: instruction budget exceeded"); }, LUA_MASKCOUNT, 50'000'000);
+
+        if (luaL_loadfilex(L, config.c_str(), "t") != LUA_OK || lua_pcall(L, 0, 0, 0) != LUA_OK)
         {
             const char *err = lua_tostring(L, -1);
-            detail::printError("%s", err != nullptr ? err : "lua load failed");
+            detail::printError("{}", err != nullptr ? err : "lua load failed");
             lua_close(L);
             return false;
         }
