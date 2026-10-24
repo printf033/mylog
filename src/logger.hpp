@@ -40,15 +40,177 @@ namespace mylog
         FATAL
     };
 
-    inline constexpr size_t kLevelCount = reflect::countEnumMembers<LEVEL>();
-    static_assert(kLevelCount == 6, "Expected 6 log levels");
-
     enum class FATAL_ACTION : uint8_t
     {
         NONE = 0,
         EXIT,
         ABORT
     };
+
+#if MYLOG_HAS_REFLECTION
+    inline constexpr size_t kLevelCount = reflect::countEnumMembers<LEVEL>();
+#else
+    inline constexpr size_t kLevelCount = 6;
+#endif
+    static_assert(kLevelCount == 6, "Expected 6 log levels");
+
+    /**
+     * @brief 将日志级别枚举转换为对应的字面量字符串
+     *
+     * @param level 日志级别
+     * @return constexpr std::string_view 对应的字符串名称（如 "INFO", "WARN"）
+     */
+    inline constexpr std::string_view levelToString(LEVEL level) noexcept
+    {
+#if MYLOG_HAS_REFLECTION
+        return reflect::enumToString(level);
+#else
+        switch (level)
+        {
+        case LEVEL::TRACE:
+            return "TRACE";
+        case LEVEL::DEBUG:
+            return "DEBUG";
+        case LEVEL::INFO:
+            return "INFO";
+        case LEVEL::WARN:
+            return "WARN";
+        case LEVEL::ERROR:
+            return "ERROR";
+        case LEVEL::FATAL:
+            return "FATAL";
+        default:
+            return "UNKNOWN";
+        }
+#endif
+    }
+
+    /**
+     * @brief 从字符串反向解析日志级别枚举
+     *
+     * @param str 日志级别字符串
+     * @param caseInsensitive 是否忽略大小写（默认为 true）
+     * @return constexpr std::optional<LEVEL> 解析成功的级别枚举或 std::nullopt
+     */
+    inline constexpr std::optional<LEVEL> parseLevel(std::string_view str, bool caseInsensitive = true) noexcept
+    {
+#if MYLOG_HAS_REFLECTION
+        return reflect::parseEnum<LEVEL>(str, caseInsensitive);
+#else
+        constexpr std::pair<LEVEL, std::string_view> entries[] = {{LEVEL::TRACE, "TRACE"}, {LEVEL::DEBUG, "DEBUG"},
+                                                                  {LEVEL::INFO, "INFO"},   {LEVEL::WARN, "WARN"},
+                                                                  {LEVEL::ERROR, "ERROR"}, {LEVEL::FATAL, "FATAL"}};
+
+        for (const auto &[v, name] : entries)
+        {
+            if (caseInsensitive)
+            {
+                if (name.size() == str.size())
+                {
+                    bool match = true;
+                    for (size_t i = 0; i < name.size(); ++i)
+                    {
+                        char c1 = name[i];
+                        char c2 = str[i];
+                        if (c1 >= 'a' && c1 <= 'z')
+                            c1 = static_cast<char>(c1 - 'a' + 'A');
+                        if (c2 >= 'a' && c2 <= 'z')
+                            c2 = static_cast<char>(c2 - 'a' + 'A');
+                        if (c1 != c2)
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                        return v;
+                }
+            }
+            else
+            {
+                if (name == str)
+                    return v;
+            }
+        }
+        return std::nullopt;
+#endif
+    }
+
+    /**
+     * @brief 将致命级别动作枚举转换为对应的字面量字符串
+     *
+     * @param act 致命级别行为动作枚举
+     * @return constexpr std::string_view 对应的字符串名称（如 "NONE", "EXIT", "ABORT"）
+     */
+    inline constexpr std::string_view fatalActionToString(FATAL_ACTION act) noexcept
+    {
+#if MYLOG_HAS_REFLECTION
+        return reflect::enumToString(act);
+#else
+        switch (act)
+        {
+        case FATAL_ACTION::NONE:
+            return "NONE";
+        case FATAL_ACTION::EXIT:
+            return "EXIT";
+        case FATAL_ACTION::ABORT:
+            return "ABORT";
+        default:
+            return "UNKNOWN";
+        }
+#endif
+    }
+
+    /**
+     * @brief 从字符串反向解析致命级别动作枚举
+     *
+     * @param str 致命级别动作字符串
+     * @param caseInsensitive 是否忽略大小写（默认为 true）
+     * @return constexpr std::optional<FATAL_ACTION> 解析成功的动作枚举或 std::nullopt
+     */
+    inline constexpr std::optional<FATAL_ACTION> parseFatalAction(std::string_view str,
+                                                                  bool caseInsensitive = true) noexcept
+    {
+#if MYLOG_HAS_REFLECTION
+        return reflect::parseEnum<FATAL_ACTION>(str, caseInsensitive);
+#else
+        constexpr std::pair<FATAL_ACTION, std::string_view> entries[] = {
+            {FATAL_ACTION::NONE, "NONE"}, {FATAL_ACTION::EXIT, "EXIT"}, {FATAL_ACTION::ABORT, "ABORT"}};
+
+        for (const auto &[v, name] : entries)
+        {
+            if (caseInsensitive)
+            {
+                if (name.size() == str.size())
+                {
+                    bool match = true;
+                    for (size_t i = 0; i < name.size(); ++i)
+                    {
+                        char c1 = name[i];
+                        char c2 = str[i];
+                        if (c1 >= 'a' && c1 <= 'z')
+                            c1 = static_cast<char>(c1 - 'a' + 'A');
+                        if (c2 >= 'a' && c2 <= 'z')
+                            c2 = static_cast<char>(c2 - 'a' + 'A');
+                        if (c1 != c2)
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                        return v;
+                }
+            }
+            else
+            {
+                if (name == str)
+                    return v;
+            }
+        }
+        return std::nullopt;
+#endif
+    }
 
     /**
      * @brief 日志输出回调函数封装结构体
@@ -574,7 +736,7 @@ namespace mylog
          */
         bool setSuppressLevel(std::string_view levelStr) noexcept
         {
-            if (auto lvl = reflect::parseEnum<LEVEL>(levelStr))
+            if (auto lvl = parseLevel(levelStr))
             {
                 setSuppressLevel(*lvl);
                 return true;
@@ -822,53 +984,6 @@ namespace mylog
         Logger(const Logger &) = delete;
         Logger &operator=(const Logger &) = delete;
     };
-
-    /**
-     * @brief 将日志级别枚举转换为对应的字面量字符串
-     *
-     * @param level 日志级别
-     * @return constexpr std::string_view 对应的字符串名称（如 "INFO", "WARN"）
-     */
-    inline constexpr std::string_view levelToString(LEVEL level) noexcept
-    {
-        return reflect::enumToString(level);
-    }
-
-    /**
-     * @brief 从字符串反向解析日志级别枚举
-     *
-     * @param str 日志级别字符串
-     * @param caseInsensitive 是否忽略大小写（默认为 true）
-     * @return constexpr std::optional<LEVEL> 解析成功的级别枚举或 std::nullopt
-     */
-    inline constexpr std::optional<LEVEL> parseLevel(std::string_view str, bool caseInsensitive = true) noexcept
-    {
-        return reflect::parseEnum<LEVEL>(str, caseInsensitive);
-    }
-
-    /**
-     * @brief 将致命级别动作枚举转换为对应的字面量字符串
-     *
-     * @param act 致命级别行为动作枚举
-     * @return constexpr std::string_view 对应的字符串名称（如 "NONE", "EXIT", "ABORT"）
-     */
-    inline constexpr std::string_view fatalActionToString(FATAL_ACTION act) noexcept
-    {
-        return reflect::enumToString(act);
-    }
-
-    /**
-     * @brief 从字符串反向解析致命级别动作枚举
-     *
-     * @param str 致命级别动作字符串
-     * @param caseInsensitive 是否忽略大小写（默认为 true）
-     * @return constexpr std::optional<FATAL_ACTION> 解析成功的动作枚举或 std::nullopt
-     */
-    inline constexpr std::optional<FATAL_ACTION> parseFatalAction(std::string_view str,
-                                                                  bool caseInsensitive = true) noexcept
-    {
-        return reflect::parseEnum<FATAL_ACTION>(str, caseInsensitive);
-    }
 
     /**
      * @brief 获取当前全局生效的日志抑制级别门限
@@ -1173,6 +1288,26 @@ namespace mylog
     }
 
 } // namespace mylog
+
+#if !MYLOG_HAS_REFLECTION
+template <>
+struct std::formatter<mylog::LEVEL> : std::formatter<std::string_view>
+{
+    auto format(mylog::LEVEL val, std::format_context &ctx) const
+    {
+        return std::formatter<std::string_view>::format(mylog::levelToString(val), ctx);
+    }
+};
+
+template <>
+struct std::formatter<mylog::FATAL_ACTION> : std::formatter<std::string_view>
+{
+    auto format(mylog::FATAL_ACTION val, std::format_context &ctx) const
+    {
+        return std::formatter<std::string_view>::format(mylog::fatalActionToString(val), ctx);
+    }
+};
+#endif
 
 #define MYLOG_LOG_IMPL(lv, ...)                                                                                        \
     do                                                                                                                 \

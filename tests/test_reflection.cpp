@@ -21,6 +21,7 @@ namespace mylog_test
         section("C++26 reflection & formatters");
         useCaptureOutput();
 
+#if MYLOG_HAS_REFLECTION
         // 1. 枚举成员数量反射查询
         CHECK_EQ(mylog::reflect::countEnumMembers<mylog::LEVEL>(), 6u);
         CHECK_EQ(mylog::reflect::countEnumMembers<mylog::FATAL_ACTION>(), 3u);
@@ -87,6 +88,7 @@ namespace mylog_test
               std::string::npos);
         CHECK(captured().find("secret_pass_123") == std::string::npos);
         CHECK(captured().find("token_xyz_999") == std::string::npos);
+#endif
 
         // 8. 辅助级别/动作转换函数
         CHECK_EQ(mylog::levelToString(mylog::LEVEL::INFO), "INFO");
@@ -145,6 +147,7 @@ namespace mylog_test
         CHECK(captured().find("error msg: failed to connect") != std::string::npos);
         CHECK(captured().find("ERROR") != std::string::npos);
 
+#if MYLOG_HAS_REFLECTION
         // 4. 对象原位打印重载：mylog::info(obj)
         struct SimplePoint
         {
@@ -154,6 +157,7 @@ namespace mylog_test
         clearCaptured();
         mylog::info(SimplePoint{10, 20});
         CHECK(captured().find("{x: 10, y: 20}") != std::string::npos);
+#endif
 
         // 5. 无宏 API 级别抑制检查
         clearCaptured();

@@ -132,7 +132,7 @@ namespace mylog
 
             if (readStringField(L, idx, "suppressLevel", text))
             {
-                if (auto lvl = reflect::parseEnum<LEVEL>(text))
+                if (auto lvl = parseLevel(text))
                 {
                     suppressLevel = *lvl;
                 }
@@ -164,7 +164,7 @@ namespace mylog
 
             if (readStringField(L, idx, "fatalAction", text))
             {
-                if (auto act = reflect::parseEnum<FATAL_ACTION>(text))
+                if (auto act = parseFatalAction(text))
                 {
                     cfg.fatalAction = *act;
                 }
@@ -198,6 +198,7 @@ namespace mylog
             bool valid = true;
             lua_Integer num = 0;
 
+#if MYLOG_HAS_REFLECTION
             static constexpr auto members = reflect::getMemberInfos<FileManager::Config>();
             template for (constexpr auto m : members)
             {
@@ -253,6 +254,46 @@ namespace mylog
                     }
                 }
             }
+#else
+            if (readNumberField(L, idx, "threadBufferCapacity", num))
+            {
+                const lua_Integer v =
+                    clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxThreadBufferCapacity));
+                if (v != num)
+                    printError("fileManager.threadBufferCapacity clamped");
+                cfg.threadBufferCapacity = static_cast<size_t>(v);
+            }
+            if (readNumberField(L, idx, "fileBufferCapacity", num))
+            {
+                const lua_Integer v = clampValue<lua_Integer>(num, static_cast<lua_Integer>(kMinFileBufferCapacity),
+                                                              static_cast<lua_Integer>(kMaxFileBufferCapacity));
+                if (v != num)
+                    printError("fileManager.fileBufferCapacity clamped");
+                cfg.fileBufferCapacity = static_cast<size_t>(v);
+            }
+            if (readNumberField(L, idx, "fileCapacity", num))
+            {
+                const lua_Integer v = clampValue<lua_Integer>(num, static_cast<lua_Integer>(kMinFileCapacity),
+                                                              static_cast<lua_Integer>(kMaxFileCapacity));
+                if (v != num)
+                    printError("fileManager.fileCapacity clamped");
+                cfg.fileCapacity = static_cast<size_t>(v);
+            }
+            if (readNumberField(L, idx, "intervalFlushFile_ms", num))
+            {
+                const lua_Integer v = clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxIntervalFlushMs));
+                if (v != num)
+                    printError("fileManager.intervalFlushFile_ms clamped");
+                cfg.intervalFlushFile_ms = static_cast<size_t>(v);
+            }
+            if (readNumberField(L, idx, "maxFiles", num))
+            {
+                const lua_Integer v = clampValue<lua_Integer>(num, 0, static_cast<lua_Integer>(kMaxMaxFiles));
+                if (v != num)
+                    printError("fileManager.maxFiles clamped");
+                cfg.maxFiles = static_cast<size_t>(v);
+            }
+#endif
 
             return valid;
         }

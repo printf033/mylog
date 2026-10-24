@@ -11,6 +11,7 @@
  * 3. 敏感字段注解 [[= mylog::sensitive]] 自动掩码脱敏为 "******"，保障日志安全。
  */
 
+#if MYLOG_HAS_REFLECTION
 enum class TaskStatus
 {
     Queued,
@@ -56,3 +57,10 @@ int main()
 
     return 0;
 }
+#else
+int main()
+{
+    mylog::warn("C++26 static reflection is disabled or not supported by current compiler.");
+    return 0;
+}
+#endif
