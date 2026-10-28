@@ -1,5 +1,7 @@
 .codewhale/
+
 build/
+
 build-*/
 
 *.log
