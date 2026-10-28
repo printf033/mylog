@@ -64,7 +64,7 @@ The core library is **100% dependency-free** (requiring only standard C++26 and 
 - **Header-Only & Zero Third-Party Dependencies (Core)**:
   - Drop the `src/` headers into your project and you are ready to go.
   - Zero external libraries required for core logging (`logger.hpp`, `fileManager.hpp`, `configHolder.hpp`, `reflection.hpp`).
-  - Optional sandboxed Lua configuration module (`configer_lua.hpp`) requires only LuaJIT.
+  - Optional sandboxed Lua configuration module (`lua_config.hpp`) requires only LuaJIT.
 
 - **Modern C++26 Macro-Free Logging & Static Reflection**:
   - **Macro-Free Modern API**: First-class `mylog::info(...)`, `mylog::debug(...)`, `mylog::warn(...)` functions that automatically capture call-site filename and line number using `std::source_location` without macro pollution (traditional `LOG_INFO(...)` macros are also preserved).
@@ -277,35 +277,35 @@ int main()
 
 ### 6. Sandboxed Lua Hot Reloading
 
-Using `configer_lua.hpp`, configurations can be updated dynamically at runtime without restarting the process:
+Using `lua_config.hpp`, configurations can be updated dynamically at runtime without restarting the process:
 
 ```cpp
-#include "configer_lua.hpp"
+#include "lua_config.hpp"
 
 // Atomically reload and apply configuration
-if (!mylog::reloadConfig("config.lua")) {
+if (!mylog::reloadConfig("config/config.lua")) {
     std::cerr << "Configuration parse failed; keeping existing settings\n";
 }
 ```
 
-Example configuration `config.lua`:
+Example configuration `config/config.lua`:
 
 ```lua
 logger = {
-    suppressLevel = "trace",    -- Minimum log level (parsed via C++26 reflection): "trace" | "debug" | "info" | "warn" | "error" | "fatal"
-    stdoutVivid = false,        -- ANSI colors for console (true for terminal, false for file)
-    escapeControlChars = true,  -- Escape control characters (prevents log injection)
-    timestampUtc = false,       -- false for local time, true for UTC (nanoseconds always enabled)
-    maxLogLength = 1 << 20,     -- Maximum log length in bytes (1 MiB)
-    fatalAction = "none"        -- Action on FATAL: "none" (default, no-op) | "exit" | "abort"
+    suppressLevel = "trace",          -- Minimum log level (parsed via C++26 reflection): "trace" | "debug" | "info" | "warn" | "error" | "fatal"
+    stdoutVivid = false,              -- ANSI colors for console (true for terminal, false for file)
+    escapeControlChars = true,        -- Escape control characters (prevents log injection)
+    timestampUtc = false,             -- false for local time, true for UTC (nanoseconds always enabled)
+    maxLogLength = 1024 * 1024,       -- Maximum log length in bytes (1 MiB)
+    fatalAction = "none"              -- Action on FATAL: "none" (default, no-op) | "exit" | "abort"
 }
 
 fileManager = {
-    threadBufferCapacity = 64 << 10,   -- Thread buffer in bytes (64 KiB, 0 = disabled)
-    fileBufferCapacity = 128 << 10,    -- Shared buffer in bytes (128 KiB)
-    fileCapacity = 100 << 20,          -- File capacity threshold for rotation (100 MiB)
-    intervalFlushFile_ms = 30 * 1000,  -- Periodic flush interval (30 seconds = 30000 ms)
-    maxFiles = 5                       -- Retention limit (0 = unlimited retention)
+    threadBufferCapacity = 64 * 1024, -- Thread buffer in bytes (64 KiB, 0 = disabled)
+    fileBufferCapacity = 128 * 1024,  -- Shared buffer in bytes (128 KiB)
+    fileCapacity = 100 * 1024 * 1024, -- File capacity threshold for rotation (100 MiB)
+    intervalFlushFile_ms = 30 * 1000, -- Periodic flush interval (30 seconds = 30000 ms)
+    maxFiles = 5                      -- Retention limit (0 = unlimited retention)
 }
 ```
 
@@ -346,7 +346,7 @@ fileManager = {
 - C++26 compatible compiler (GCC 16+ with `-freflection`, Clang 23+)
 - POSIX-compliant environment (Linux)
 - CMake 3.20+
-- *Optional*: `luajit` (only needed for `configer_lua.hpp` or Lua examples)
+- *Optional*: `luajit` (only needed for `lua_config.hpp` or Lua examples)
 
 ### CMake Integration
 
@@ -454,15 +454,16 @@ The project enforces strict code style and static verification across multiple t
 │   ├── reflection.hpp          # C++26 static reflection (struct/enum formatter, masking)
 │   ├── configHolder.hpp        # Lock-free generation-counter config snapshot manager
 │   ├── fileManager.hpp         # Storage engine, TLS buffer, rotation & retention
-│   └── configer_lua.hpp        # Optional sandboxed Lua configuration reload
+│   └── lua_config.hpp          # Optional sandboxed Lua configuration reload
+├── config/                     # Runtime configuration files
+│   └── config.lua              # Documented Lua configuration example file
 ├── examples/                   # Practical examples
 │   ├── 1_a_simple_start.cpp    # Quick start console logging
 │   ├── 2_set_suppress_level.cpp# Level filtering and Lua configuration reload
 │   ├── 3_output_to_file.cpp    # Multi-threaded shared single file logging
 │   ├── 4_output_to_file_per_thread.cpp # Per-thread dedicated file logging
 │   ├── 5_reflection.cpp        # C++26 static reflection & sensitive masking
-│   ├── example_config.hpp      # Example configuration detection header
-│   └── config.lua              # Documented Lua configuration example file
+│   └── example_config.hpp      # Example configuration detection header
 ├── bench/                      # Performance micro-benchmarks
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # Multi-threaded throughput and latency benchmark

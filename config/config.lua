@@ -1,4 +1,4 @@
--- mylog 配置示例（由 Configer::reload("config.lua") 载入）
+-- mylog 配置示例（由 mylog::reloadConfig("config/config.lua") 载入）
 --
 -- 安全说明：脚本在裸 lua_State 中执行，io / os / package / debug 等标准库
 -- 都没有注册，因此配置脚本无法读写文件、启动进程或执行命令。
@@ -20,7 +20,7 @@ logger = {
 
     -- 单条日志字节上限，超出部分被截断
     -- 合法区间 [64 B, 64 MiB]
-    maxLogLength = 1 << 20, -- 1 MiB
+    maxLogLength = 1024 * 1024, -- 1 MiB
 
     -- FATAL 触发后的系统动作
     -- "none" 适合常驻服务与测试；"exit" 正常退出；"abort" 崩溃转储
@@ -30,14 +30,14 @@ logger = {
 fileManager = {
     -- 每线程私有写缓冲（字节），0 = 关闭并退回「全局锁 + 共享缓冲」
     -- 多线程写同一个文件时收益明显；关掉（设 0）会明显变慢
-    threadBufferCapacity = 64 << 10, -- 64 KiB
+    threadBufferCapacity = 64 * 1024, -- 64 KiB
 
     -- 共享写缓冲（字节），线程缓冲关闭或排空到共享文件时使用
-    fileBufferCapacity = 128 << 10, -- 128 KiB
+    fileBufferCapacity = 128 * 1024, -- 128 KiB
 
     -- 单个日志文件上限（字节），超过即滚动到新文件
     -- 合法区间 [1024 B, 64 GiB]
-    fileCapacity = 100 << 20, -- 100 MiB
+    fileCapacity = 100 * 1024 * 1024, -- 100 MiB
 
     -- 距上次写盘超过该毫秒数就 flush
     -- 合法区间 [0, 24h]

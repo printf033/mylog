@@ -64,7 +64,7 @@
 - **Header-Only 与核心层零第三方依赖**：
   - 无需编译库文件，直接包含 `src/` 即可使用。
   - 核心模块（`logger.hpp`、`fileManager.hpp`、`configHolder.hpp`、`reflection.hpp`）不依赖任何第三方库。
-  - 可选的 Lua 配置热加载模块（`configer_lua.hpp`）仅需引入 LuaJIT。
+  - 可选的 Lua 配置热加载模块（`lua_config.hpp`）仅需引入 LuaJIT。
 
 - **现代化 C++26 无宏调用（Macro-Free API）与静态反射**：
   - **基于 `std::source_location` 的现代化 API**：全面支持 `mylog::info(...)`、`mylog::debug(...)`、`mylog::warn(...)` 等无宏函数调用，在编译期自动捕获调用处的文件名、函数名与行号，不污染全局宏命名空间（传统 `LOG_INFO` 等宏亦完全保留并兼容）。
@@ -276,35 +276,35 @@ int main()
 
 ### 6. 沙箱化 Lua 配置热重载
 
-使用 `configer_lua.hpp` 可以在服务运行期间通过修改 Lua 脚本动态热加载配置：
+使用 `lua_config.hpp` 可以在服务运行期间通过修改 Lua 脚本动态热加载配置：
 
 ```cpp
-#include "configer_lua.hpp"
+#include "lua_config.hpp"
 
 // 加载并原子应用配置
-if (!mylog::reloadConfig("config.lua")) {
+if (!mylog::reloadConfig("config/config.lua")) {
     std::cerr << "配置解析失败，保持原有配置运行\n";
 }
 ```
 
-配置示例 `config.lua`：
+配置示例 `config/config.lua`：
 
 ```lua
 logger = {
-    suppressLevel = "trace",    -- 抑制级别（基于 C++26 静态反射解析枚举字符串，推荐小写）："trace" | "debug" | "info" | "warn" | "error" | "fatal"
-    stdoutVivid = false,        -- 级别标签是否带 ANSI 颜色（终端建议 true，写文件建议 false）
-    escapeControlChars = true,  -- 转义控制字符（阻断日志伪造）
-    timestampUtc = false,       -- false 为本地时间，true 为 UTC（纳秒精度固定常开）
-    maxLogLength = 1 << 20,     -- 单条日志最大字节数（1 MiB）
-    fatalAction = "none"        -- 触发 FATAL 后的动作："none"（默认，啥也不做） | "exit" | "abort"
+    suppressLevel = "trace",          -- 抑制级别（基于 C++26 静态反射解析枚举字符串，推荐小写）："trace" | "debug" | "info" | "warn" | "error" | "fatal"
+    stdoutVivid = false,              -- 级别标签是否带 ANSI 颜色（终端建议 true，写文件建议 false）
+    escapeControlChars = true,        -- 转义控制字符（阻断日志伪造）
+    timestampUtc = false,             -- false 为本地时间，true 为 UTC（纳秒精度固定常开）
+    maxLogLength = 1024 * 1024,       -- 单条日志最大字节数（1 MiB）
+    fatalAction = "none"              -- 触发 FATAL 后的动作："none"（默认，啥也不做） | "exit" | "abort"
 }
 
 fileManager = {
-    threadBufferCapacity = 64 << 10,   -- 线程局部缓冲字节数（64 KiB，0 为关闭）
-    fileBufferCapacity = 128 << 10,    -- 共享写缓冲字节数（128 KiB）
-    fileCapacity = 100 << 20,          -- 单文件滚动容量（100 MiB）
-    intervalFlushFile_ms = 30 * 1000,  -- 定时落盘间隔（30 秒 = 30000 毫秒）
-    maxFiles = 5                       -- 最多保留的历史文件数（0 为不自动清理）
+    threadBufferCapacity = 64 * 1024, -- 线程局部缓冲字节数（64 KiB，0 为关闭）
+    fileBufferCapacity = 128 * 1024,  -- 共享写缓冲字节数（128 KiB）
+    fileCapacity = 100 * 1024 * 1024, -- 单文件滚动容量（100 MiB）
+    intervalFlushFile_ms = 30 * 1000, -- 定时落盘间隔（30 秒 = 30000 毫秒）
+    maxFiles = 5                      -- 最多保留的历史文件数（0 为不自动清理）
 }
 ```
 
@@ -345,7 +345,7 @@ fileManager = {
 - 支持 C++26 的编译器（GCC 16+ 配合 `-freflection`，Clang 23+）
 - POSIX 兼容系统（Linux）
 - CMake 3.20 及以上
-- *可选*：`luajit`（仅在使用 `configer_lua.hpp` 或构建带 Lua 的样例时需要）
+- *可选*：`luajit`（仅在使用 `lua_config.hpp` 或构建带 Lua 的样例时需要）
 
 ### CMake 引入方式
 
@@ -453,15 +453,16 @@ cmake --build build_release --target bench
 │   ├── reflection.hpp          # C++26 静态反射（枚举/结构体打印、脱敏）
 │   ├── configHolder.hpp        # 基于代次计数的无锁配置快照管理器
 │   ├── fileManager.hpp         # 落盘引擎、线程局部缓冲、文件滚动与保留清理
-│   └── configer_lua.hpp        # 可选的沙箱化 Lua 配置热重载组件
+│   └── lua_config.hpp          # 可选的沙箱化 Lua 配置热重载组件
+├── config/                     # 运行期配置文件目录
+│   └── config.lua              # 带详细中英文注释的 Lua 配置示例文件
 ├── examples/                   # 示例代码
 │   ├── 1_a_simple_start.cpp    # 快速上手（控制台输出）
 │   ├── 2_set_suppress_level.cpp# 级别过滤与 Lua 配置加载示例
 │   ├── 3_output_to_file.cpp    # 多线程共享单文件落盘演示
 │   ├── 4_output_to_file_per_thread.cpp # 每线程独立文件落盘演示
 │   ├── 5_reflection.cpp        # C++26 静态反射打印与敏感字段脱敏演示
-│   ├── example_config.hpp      # 示例辅助配置探测头文件
-│   └── config.lua              # 带详细中英文注释的 Lua 配置示例文件
+│   └── example_config.hpp      # 示例辅助配置探测头文件
 ├── bench/                      # 性能基准测试
 │   ├── CMakeLists.txt
 │   └── bench.cpp               # 多线程吞吐与延迟基准测试程序

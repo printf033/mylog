@@ -8,8 +8,8 @@ namespace mylog_example
     /**
      * @brief 探测并解析样例程序使用的 Lua 配置文件路径
      *
-     * 依次在命令行参数、当前工作目录、上层目录及 examples/ 目录下探测 config.lua，
-     * 避免因运行工作目录不同（如从源码根目录、build/ 或 build/bin/ 启动）导致找不到配置。
+     * 依次在命令行参数与当前工作目录下探测 config.lua，兼容从源码树根、build/ 或 build/bin/ 启动，
+     * 避免因运行工作目录不同导致找不到配置。
      *
      * @param argc 命令行参数个数
      * @param argv 命令行参数字符串数组
@@ -21,13 +21,10 @@ namespace mylog_example
             return argv[1];
 
         const std::filesystem::path candidates[] = {
-            "config.lua",                // 与二进制同目录放置的配置
-            "../examples/config.lua",    // 从构建树根运行
-            "../../examples/config.lua", // 从构建树 bin/ 运行
-            "examples/config.lua",       // 从源码树根运行
-            "../example/config.lua",     // 兼容历史路径
-            "../../example/config.lua",
-            "example/config.lua",
+            "config.lua",              // 当前工作目录下的独立配置，优先级最高
+            "config/config.lua",       // 从源码树根运行
+            "../config/config.lua",    // 从构建树根（build/）运行
+            "../../config/config.lua", // 从构建树 bin/（build/bin/）运行
         };
         std::error_code ec;
         for (const std::filesystem::path &candidate : candidates)
@@ -35,6 +32,7 @@ namespace mylog_example
             if (std::filesystem::is_regular_file(candidate, ec))
                 return candidate;
         }
+        // 兜底路径仅用于报错提示，取源码树根布局
         return candidates[1];
     }
 } // namespace mylog_example
